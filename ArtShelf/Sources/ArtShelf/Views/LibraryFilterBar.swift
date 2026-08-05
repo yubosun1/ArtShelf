@@ -22,30 +22,34 @@ struct LibraryFilterBar: View {
 
             Spacer(minLength: 8)
 
-            if hasActiveFilter {
-                Button {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        appState.clearBrowseFilters()
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("清除")
-                            .font(ArtShelfStyle.control)
-                    }
-                    .foregroundStyle(ArtShelfStyle.inkSecondary)
-                    .padding(.horizontal, 9)
-                    .frame(height: 26)
-                    .wellBackground()
-                    .contentShape(Rectangle())
+            // 始终占位，避免清除按钮出现/消失导致控件栏宽度变化
+            Button {
+                withAnimation(.easeOut(duration: 0.16)) {
+                    appState.clearBrowseFilters()
                 }
-                .buttonStyle(.plain)
-                .help("清除筛选条件")
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("清除")
+                        .font(ArtShelfStyle.control)
+                }
+                .foregroundStyle(ArtShelfStyle.inkSecondary)
+                .padding(.horizontal, 9)
+                .frame(height: 26)
+                .wellBackground()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .opacity(hasActiveFilter ? 1 : 0)
+            .disabled(!hasActiveFilter)
+            .allowsHitTesting(hasActiveFilter)
+            .accessibilityHidden(!hasActiveFilter)
+            .help("清除筛选条件")
         }
         .padding(.horizontal, ArtShelfStyle.contentPadding)
         .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(ArtShelfStyle.surface)
     }
 
@@ -64,7 +68,8 @@ struct LibraryFilterBar: View {
             FilterMenuLabel(
                 icon: appState.selectedStatus?.iconName ?? "circle.dashed",
                 title: appState.selectedStatus.map { appState.compactStatusLabel(for: $0) } ?? "状态",
-                isActive: appState.selectedStatus != nil
+                isActive: appState.selectedStatus != nil,
+                textMinWidth: 40
             )
         }
         .menuStyle(.borderlessButton)
@@ -85,7 +90,8 @@ struct LibraryFilterBar: View {
             FilterMenuLabel(
                 icon: appState.selectedTimeFilter == .all ? "clock" : appState.selectedTimeFilter.iconName,
                 title: appState.selectedTimeFilter == .all ? "时间" : appState.selectedTimeFilter.rawValue,
-                isActive: appState.selectedTimeFilter != .all
+                isActive: appState.selectedTimeFilter != .all,
+                textMinWidth: 58
             )
         }
         .menuStyle(.borderlessButton)
@@ -106,7 +112,8 @@ struct LibraryFilterBar: View {
             FilterMenuLabel(
                 icon: appState.selectedSort.iconName,
                 title: appState.selectedSort.rawValue,
-                isActive: appState.selectedSort != .smart
+                isActive: appState.selectedSort != .smart,
+                textMinWidth: 52
             )
         }
         .menuStyle(.borderlessButton)
@@ -129,6 +136,9 @@ private struct FilterMenuLabel: View {
     let title: String
     let isActive: Bool
 
+    /// 标题区的最小宽度，避免切换选项时文字宽度变化导致整个控件栏抖动
+    var textMinWidth: CGFloat = 0
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
@@ -136,6 +146,7 @@ private struct FilterMenuLabel: View {
             Text(title)
                 .font(ArtShelfStyle.control)
                 .lineLimit(1)
+                .frame(minWidth: textMinWidth, alignment: .leading)
             Image(systemName: "chevron.down")
                 .font(.system(size: 7.5, weight: .bold))
                 .opacity(0.5)
