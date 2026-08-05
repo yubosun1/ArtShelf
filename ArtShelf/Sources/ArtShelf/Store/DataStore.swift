@@ -1,10 +1,23 @@
 import Foundation
 import SwiftUI
 
+/// 磁盘存储的完整数据——包含收藏条目与标签自定义顺序
+///
+/// 兼容旧版：v1.4.0 之前只存 `[MediaItem]` 数组，load 时会自动迁移。
+private struct LibraryData: Codable {
+    var items: [MediaItem]
+    var tagOrder: [String]?
+}
+
 /// 本地数据存储——所有数据以 JSON 形式存在 `~/Library/Application Support/ArtShelf/library.json`
 final class DataStore: ObservableObject {
 
     @Published var items: [MediaItem] = [] {
+        didSet { scheduleSave() }
+    }
+
+    /// 标签自定义顺序（用户拖拽后的顺序）。nil 或未收录的标签用字典序兜底。
+    @Published var tagOrder: [String] = [] {
         didSet { scheduleSave() }
     }
 
@@ -16,13 +29,22 @@ final class DataStore: ObservableObject {
 
     // MARK: - 持久化
 
-    /// 从磁盘加载
+    /// 从磁盘加载（兼容旧版纯数组格式）
     private func load() {
         let url = MediaItem.dataFile
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         do {
             let data = try Data(contentsOf: url)
-            items = try JSONDecoder().decode([MediaItem].self, from: data)
+            // 优先新格式
+            if let library = try? JSONDecoder().decode(LibraryData.self, from: data) {
+                items = library.items
+                tagOrder = library.tagOrder ?? []
+            } else if let legacy = try? JSONDecoder().decode([MediaItem].self, from: data) {
+                items = legacy
+                tagOrder = []
+            } else {
+                print("⚠️ 数据格式无法识别")
+            }
         } catch {
             print("⚠️ 加载数据失败: \(error)")
         }
@@ -40,7 +62,8 @@ final class DataStore: ObservableObject {
 
     private func saveNow() {
         do {
-            let data = try JSONEncoder().encode(items)
+            let library = LibraryData(items: items, tagOrder: tagOrder)
+            let data = try JSONEncoder().encode(library)
             let url = MediaItem.dataFile
             try data.write(to: url, options: .atomic)
         } catch {
@@ -110,14 +133,46 @@ final class DataStore: ObservableObject {
         }
     }
 
-    /// 获取某个类型的所有标签（去重）
+    /// 获取某个类型的所有标签（去重，字典序）
     func tags(for type: MediaType) -> [String] {
         Set(items.filter { $0.type == type }.flatMap { $0.tags }).sorted()
     }
 
-    /// 所有标签（去重）
+    /// 所有标签（去重，优先自定义顺序）
     var allTags: [String] {
-        Set(items.flatMap { $0.tags }).sorted()
+        let all = Set(items.flatMap { $0.tags })
+        // 自定义顺序中的标签保持用户排序；未在自定义列表中的按字典序追加
+        let ordered = tagOrder.filter { all.contains($0) }
+        let rest = all.subtracting(ordered).sorted()
+        return ordered + rest
+    }
+
+    // MARK: - 标签排序
+
+    /// 将标签移动到目标标签的位置（拖拽排序）
+    ///
+    /// 语义：拖到目标标签上 = 让被拖标签占据目标的位置——
+    /// 被拖标签原本在目标上方则落到目标后面，原本在下方则插到目标前面。
+    /// 这样无论往上还是往下拖动都有明确的位移效果。
+    func moveTag(_ tag: String, before targetTag: String) {
+        let current = allTags
+        guard let from = current.firstIndex(of: tag),
+              let to = current.firstIndex(of: targetTag),
+              from != to else { return }
+
+        var reordered = current
+        reordered.remove(at: from)
+
+        // 移除后目标的下标需要修正：被拖项在目标前面时，目标向左移一位
+        let adjustedTarget = to > from ? to - 1 : to
+        // 被拖项在目标前面（往下拖）→ 插到目标后面；
+        // 被拖项在目标后面（往上拖）→ 插到目标前面。
+        let insertIndex = to > from ? adjustedTarget + 1 : adjustedTarget
+        reordered.insert(tag, at: insertIndex)
+
+        // 只持久化当前存在的标签，清理失效项
+        let all = Set(items.flatMap { $0.tags })
+        tagOrder = reordered.filter { all.contains($0) }
     }
 
     // MARK: - 封面缓存

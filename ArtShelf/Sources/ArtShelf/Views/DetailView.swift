@@ -11,6 +11,8 @@ struct DetailView: View {
     @State private var newTag: String = ""
     @State private var isExtractingCover = false
     @State private var isEditingTitle = false
+    @State private var isEditingWebURL = false
+    @State private var webURLDraft = ""
 
     init(item: MediaItem) {
         _item = State(initialValue: item)
@@ -460,34 +462,90 @@ struct DetailView: View {
     private var webURLSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(title: "在线链接")
-            HStack {
-                if let webURL = item.webURL, !webURL.isEmpty {
-                    Text(webURL)
+
+            if isEditingWebURL {
+                HStack(spacing: 6) {
+                    TextField("粘贴在线观看 / 阅读链接…", text: $webURLDraft)
+                        .textFieldStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .wellBackground()
+                        .onSubmit { saveWebURL() }
+
                     Button {
-                        FileService.shared.openURL(webURL)
+                        saveWebURL()
                     } label: {
-                        Image(systemName: "arrow.up.right.square")
+                        Text("保存")
+                            .frame(width: 40)
                     }
-                    .buttonStyle(.plain)
-                    .help("打开链接")
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
                     Button {
-                        item.webURL = nil
+                        isEditingWebURL = false
+                        webURLDraft = item.webURL ?? ""
                     } label: {
-                        Image(systemName: "xmark.circle")
+                        Text("取消")
+                            .frame(width: 36)
                     }
-                    .buttonStyle(.plain)
-                    .help("移除链接")
-                } else {
-                    Text("无在线链接")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            } else {
+                HStack {
+                    if let webURL = item.webURL, !webURL.isEmpty {
+                        Text(webURL)
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
+                            FileService.shared.openURL(webURL)
+                        } label: {
+                            Image(systemName: "arrow.up.right.square")
+                        }
+                        .buttonStyle(.plain)
+                        .help("打开链接")
+                        Button {
+                            webURLDraft = webURL
+                            isEditingWebURL = true
+                        } label: {
+                            Image(systemName: "pencil")
+                        }
+                        .buttonStyle(.plain)
+                        .help("编辑链接（比如搜索到的信息页和在线观看页不是同一个网站）")
+                        Button {
+                            item.webURL = nil
+                        } label: {
+                            Image(systemName: "xmark.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .help("移除链接")
+                    } else {
+                        Text("无在线链接")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Button {
+                            webURLDraft = ""
+                            isEditingWebURL = true
+                        } label: {
+                            Label("添加链接", systemImage: "link")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
             }
         }
+    }
+
+    /// 保存编辑后的在线链接
+    private func saveWebURL() {
+        let trimmed = webURLDraft.trimmingCharacters(in: .whitespaces)
+        item.webURL = trimmed.isEmpty ? nil : trimmed
+        isEditingWebURL = false
     }
 }

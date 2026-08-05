@@ -41,11 +41,15 @@ struct SidebarView: View {
                             .padding(.bottom, 7)
 
                         ForEach(store.allTags, id: \.self) { tag in
-                            sidebarRow(
-                                icon: "number",
+                            DraggableTagRow(
                                 title: tag,
                                 count: store.items.filter { $0.tags.contains(tag) }.count,
-                                isSelected: appState.selectedTag == tag
+                                isSelected: appState.selectedTag == tag,
+                                onMove: { dragged in
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        store.moveTag(dragged, before: tag)
+                                    }
+                                }
                             ) {
                                 withAnimation(.easeOut(duration: 0.16)) {
                                     appState.selectedCategory = nil
@@ -142,6 +146,77 @@ private struct SidebarRow: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.1)) { isHovered = hovering }
+        }
+    }
+}
+
+/// 可拖拽排序的标签行——不使用 Button（Button 会拦截鼠标按下，导致 draggable 无法启动），
+/// 改用 onTapGesture 处理点击。放置逻辑在行内通过 onDrop 完成。
+private struct DraggableTagRow: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let onMove: (String) -> Void
+    let action: () -> Void
+
+    @State private var isHovered = false
+    @State private var isDropTarget = false
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "number")
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 16)
+
+            Text(title)
+                .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                .lineLimit(1)
+
+            Spacer(minLength: 6)
+
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 10.5).monospacedDigit())
+                    .foregroundStyle(isSelected ? ArtShelfStyle.accent.opacity(0.7) : ArtShelfStyle.inkTertiary)
+            }
+        }
+        .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.ink)
+        .padding(.horizontal, 9)
+        .frame(height: 27)
+        .background(
+            RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
+                .fill(isSelected ? ArtShelfStyle.accentWash
+                                 : (isDropTarget ? ArtShelfStyle.accentWash
+                                                : (isHovered ? ArtShelfStyle.hoverFill : .clear)))
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.1)) { isHovered = hovering }
+        }
+        .onTapGesture(perform: action)
+        .onDrag {
+            NSItemProvider(object: title as NSString)
+        } preview: {
+            Label(title, systemImage: "number")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(ArtShelfStyle.ink)
+                .padding(.horizontal, 9)
+                .frame(height: 27)
+                .background(
+                    RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
+                        .fill(ArtShelfStyle.well)
+                )
+        }
+        .onDrop(of: [.plainText], isTargeted: $isDropTarget) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: NSString.self) { object, _ in
+                if let string = object as? String {
+                    DispatchQueue.main.async {
+                        onMove(string)
+                    }
+                }
+            }
+            return true
         }
     }
 }
