@@ -30,27 +30,6 @@
 - macOS 14.0 (Sonoma) 或更高
 - Apple Silicon 或 Intel
 
-## 构建
-
-```bash
-# 直接编译可执行文件
-cd ArtShelf
-swift build -c release
-
-# 或者用顶层脚本，生成完整 .app bundle
-./build.sh
-```
-
-构建产物位于 `ArtShelf/ArtShelf.app`，可以直接拖入 `/Applications` 使用。
-
-### 打包成 .app
-
-`build.sh` 会自动：
-1. 编译 release 版本
-2. 生成 `.app` bundle 结构
-3. 复制可执行文件与图标（优先 `ArtShelf-v2.icns`）
-4. 复制稳定版 `Info.plist`
-
 ## 数据与隐私
 
 - 所有数据保存在本地 `~/Library/Application Support/ArtShelf/`
@@ -62,7 +41,7 @@ swift build -c release
 
 ```
 ArtShelf/
-├── build.sh                          # 顶层打包脚本
+├── build.sh                          # 顶层构建脚本
 └── ArtShelf/
     ├── Package.swift                  # Swift Package 定义（macOS 14+）
     ├── Sources/ArtShelf/
@@ -73,7 +52,7 @@ ArtShelf/
     │   └── Store/                    # 数据存储与全局状态
     ├── Resources/                    # Info.plist 与图标源文件
     ├── Scripts/                      # 图标生成脚本
-    └── ArtShelf-v2.icns              # 应用图标
+    └── ArtShelf.icns                 # 应用图标
 ```
 
 ## 许可证

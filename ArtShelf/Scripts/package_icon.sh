@@ -2,8 +2,8 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE="$ROOT_DIR/Resources/icon_final_v2.png"
-ICONSET="$ROOT_DIR/ArtShelf-v2.iconset"
+SOURCE="$ROOT_DIR/Resources/icon.png"
+ICONSET="$ROOT_DIR/ArtShelf.iconset"
 
 mkdir -p "$ICONSET"
 sips -z 16 16 "$SOURCE" --out "$ICONSET/icon_16x16.png"
@@ -17,4 +17,4 @@ sips -z 512 512 "$SOURCE" --out "$ICONSET/icon_256x256@2x.png"
 sips -z 512 512 "$SOURCE" --out "$ICONSET/icon_512x512.png"
 cp "$SOURCE" "$ICONSET/icon_512x512@2x.png"
 
-iconutil -c icns "$ICONSET" -o "$ROOT_DIR/ArtShelf-v2.icns"
+iconutil -c icns "$ICONSET" -o "$ROOT_DIR/ArtShelf.icns"

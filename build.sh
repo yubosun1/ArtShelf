@@ -26,10 +26,8 @@ mkdir -p "$APP_DIR/Contents/Resources"
 cp .build/arm64-apple-macosx/release/ArtShelf "$APP_DIR/Contents/MacOS/ArtShelf"
 chmod +x "$APP_DIR/Contents/MacOS/ArtShelf"
 
-# 复制新版 .icns（保留旧版资源作为回退）
-if [ -f "ArtShelf-v2.icns" ]; then
-    cp ArtShelf-v2.icns "$APP_DIR/Contents/Resources/ArtShelf.icns"
-elif [ -f "ArtShelf.icns" ]; then
+# 复制应用图标
+if [ -f "ArtShelf.icns" ]; then
     cp ArtShelf.icns "$APP_DIR/Contents/Resources/ArtShelf.icns"
 fi
 
