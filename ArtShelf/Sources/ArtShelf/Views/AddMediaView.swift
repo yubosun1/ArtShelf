@@ -13,6 +13,10 @@ struct AddMediaView: View {
     @State private var addedIds: Set<UUID> = []
     @State private var showingManualAdd = false
     @State private var manualTitle = ""
+    @State private var manualLink = ""
+    @State private var manualMetadata: LinkMetadata?
+    @State private var isFetchingMetadata = false
+    @State private var metadataFetchError = false
 
     /// 搜索结果里封面的固定宽度——高度由宽高比推出，与图片原始尺寸无关。
     private let resultCoverWidth: CGFloat = 58
@@ -188,25 +192,7 @@ struct AddMediaView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             if showingManualAdd {
-                TextField("标题", text: $manualTitle)
-                    .textFieldStyle(.plain)
-                    .font(ArtShelfStyle.body)
-                    .padding(.horizontal, 10)
-                    .frame(height: 26)
-                    .wellBackground()
-                    .onSubmit { addManual() }
-
-                Button("添加") { addManual() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(manualTitle.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                Button("取消") {
-                    showingManualAdd = false
-                    manualTitle = ""
-                }
-                .buttonStyle(.plain)
-                .font(ArtShelfStyle.control)
-                .foregroundStyle(ArtShelfStyle.inkSecondary)
+                manualAddFields
             } else {
                 Button {
                     showingManualAdd = true
@@ -221,7 +207,7 @@ struct AddMediaView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("搜不到时自己填一条")
+                .help("搜不到时自己填一条，或粘贴链接自动获取封面")
 
                 Spacer()
 
@@ -236,6 +222,138 @@ struct AddMediaView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 11)
         .background(ArtShelfStyle.surface)
+    }
+
+    // MARK: - 手动添加区
+
+    private var manualAddFields: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("标题")
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    TextField("标题", text: $manualTitle)
+                        .textFieldStyle(.plain)
+                        .font(ArtShelfStyle.body)
+                        .padding(.horizontal, 10)
+                        .frame(height: 26)
+                        .wellBackground()
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("链接")
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    HStack(spacing: 6) {
+                        TextField("粘贴网页链接，自动获取封面…", text: $manualLink)
+                            .textFieldStyle(.plain)
+                            .font(ArtShelfStyle.body)
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .wellBackground()
+                            .onSubmit { fetchManualMetadata() }
+
+                        Button {
+                            fetchManualMetadata()
+                        } label: {
+                            if isFetchingMetadata {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .frame(width: 44)
+                            } else {
+                                Text("获取")
+                                    .frame(width: 44)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isFetchingMetadata || manualLink.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .help("从链接自动获取标题与封面")
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(" ")
+                        .font(ArtShelfStyle.cardMeta)
+                    Button("添加") { addManual() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(manualTitle.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(" ")
+                        .font(ArtShelfStyle.cardMeta)
+                    Button("取消") {
+                        showingManualAdd = false
+                        manualTitle = ""
+                        manualLink = ""
+                        manualMetadata = nil
+                        metadataFetchError = false
+                    }
+                    .buttonStyle(.plain)
+                    .font(ArtShelfStyle.control)
+                    .foregroundStyle(ArtShelfStyle.inkSecondary)
+                }
+            }
+
+            if let meta = manualMetadata {
+                manualPreview(meta)
+            } else if metadataFetchError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(ArtShelfStyle.inkSecondary)
+                    Text("未能从链接获取信息，可手动填写标题后添加。")
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkSecondary)
+                }
+            }
+        }
+    }
+
+    private func manualPreview(_ meta: LinkMetadata) -> some View {
+        HStack(spacing: 12) {
+            CoverImageView(
+                localPath: nil,
+                remoteURL: meta.coverURL,
+                aspectRatio: selectedType.coverAspectRatio,
+                cornerRadius: 4
+            )
+            .frame(width: 44)
+            .frame(height: 44 / selectedType.coverAspectRatio, alignment: .top)
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let title = meta.title {
+                    Text(title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(ArtShelfStyle.ink)
+                        .lineLimit(1)
+                }
+                if let desc = meta.description {
+                    Text(desc)
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                        .lineLimit(2)
+                        .lineSpacing(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if manualTitle.trimmingCharacters(in: .whitespaces).isEmpty,
+               let title = meta.title {
+                Button("使用此标题") {
+                    manualTitle = title
+                }
+                .buttonStyle(.plain)
+                .font(ArtShelfStyle.control)
+                .foregroundStyle(ArtShelfStyle.accent)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
+                .fill(ArtShelfStyle.well.opacity(0.6))
+        )
     }
 
     // MARK: - 搜索
@@ -290,9 +408,67 @@ struct AddMediaView: View {
     private func addManual() {
         let title = manualTitle.trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty else { return }
-        store.add(MediaItem(title: title, type: selectedType))
+
+        var item = MediaItem(title: title, type: selectedType)
+        item.webURL = manualLink.trimmingCharacters(in: .whitespaces).nilIfEmpty
+        if let meta = manualMetadata {
+            item.synopsis = meta.description
+            item.coverURL = meta.coverURL
+        }
+
+        store.add(item)
+
+        // 异步下载封面到本地缓存
+        if let coverURL = item.coverURL {
+            let itemId = item.id
+            Task {
+                if let localPath = await store.cacheCover(for: item, from: coverURL) {
+                    await MainActor.run {
+                        if var stored = store.item(for: itemId) {
+                            stored.localCoverPath = localPath
+                            store.update(stored)
+                        }
+                    }
+                }
+            }
+        }
+
         manualTitle = ""
+        manualLink = ""
+        manualMetadata = nil
+        metadataFetchError = false
         showingManualAdd = false
+    }
+
+    /// 从链接自动获取标题 / 封面 / 简介
+    private func fetchManualMetadata() {
+        let link = manualLink.trimmingCharacters(in: .whitespaces)
+        guard !link.isEmpty else { return }
+
+        isFetchingMetadata = true
+        metadataFetchError = false
+        Task {
+            let meta = await LinkMetadataService.shared.fetch(from: link)
+            await MainActor.run {
+                isFetchingMetadata = false
+                if let meta {
+                    manualMetadata = meta
+                    metadataFetchError = false
+                } else {
+                    manualMetadata = nil
+                    metadataFetchError = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 工具
+
+private extension String {
+    /// 空字符串转 nil，方便写入可选字段
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 
