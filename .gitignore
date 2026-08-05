@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode / Swift Package Manager 构建产物
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# 打包产物
+*.app
+*.dmg
+*.pkg
+
+# 临时文件
+*.tmp
+*.swp
+*~
+
+# 图标生成中间产物
+ArtShelf/Resources/icon_*.png
