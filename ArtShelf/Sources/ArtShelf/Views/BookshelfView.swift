@@ -20,7 +20,7 @@ struct BookshelfView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            LibraryFilterBar()
+            header
             PaperRule()
 
             if filteredItems.isEmpty {
@@ -31,12 +31,36 @@ struct BookshelfView: View {
         }
         .background(ArtShelfStyle.paper)
         .navigationTitle(navigationTitle)
-        .navigationSubtitle(navigationSubtitle)
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
                 .environmentObject(store)
                 .environmentObject(appState)
         }
+    }
+
+    // MARK: - 页眉
+
+    /// 编辑式页眉：印章 + 宋体大标题 + 小字副题，右侧是筛选控件簇。
+    private var header: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    SealMark(size: 8)
+                    Text(navigationTitle)
+                        .font(ArtShelfStyle.pageTitle)
+                        .foregroundStyle(ArtShelfStyle.ink)
+                }
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .tracking(0.5)
+                    .foregroundStyle(ArtShelfStyle.inkTertiary)
+            }
+            Spacer(minLength: 16)
+            LibraryFilterBar()
+        }
+        .padding(.horizontal, ArtShelfStyle.contentPadding)
+        .padding(.top, 20)
+        .padding(.bottom, 14)
     }
 
     private var grid: some View {
@@ -75,8 +99,9 @@ struct BookshelfView: View {
         appState.selectedTag ?? appState.selectedCategory?.rawValue ?? "收藏"
     }
 
-    private var navigationSubtitle: String {
-        var parts = ["\(filteredItems.count) 项"]
+    /// 副题：共 N 项；有状态/时间筛选时追加说明。
+    private var subtitle: String {
+        var parts = ["共 \(filteredItems.count) 项"]
         if let status = appState.selectedStatus {
             parts.append(appState.statusLabel(for: status))
         }
@@ -89,40 +114,21 @@ struct BookshelfView: View {
     // MARK: - 空状态
 
     private var emptyState: some View {
-        VStack(spacing: 0) {
-            // 一段空书架，暗示这里将要放东西
-            HStack(spacing: 14) {
-                ForEach(0..<3, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: ArtShelfStyle.cardRadius, style: .continuous)
-                        .fill(ArtShelfStyle.well)
-                        .frame(width: 44, height: [66, 78, 58][index])
-                }
-            }
-            .frame(height: 78, alignment: .bottom)
-
-            ArtShelfStyle.shelf
-                .frame(width: 168, height: 2)
-                .clipShape(Capsule())
-                .padding(.top, 5)
-
+        VStack(spacing: 14) {
+            SealMark(size: 9)
             Text(emptyTitle)
-                .font(ArtShelfStyle.title(15))
+                .font(ArtShelfStyle.serifTitle(20))
                 .foregroundStyle(ArtShelfStyle.ink)
-                .padding(.top, 22)
-
             Text(emptyMessage)
                 .font(ArtShelfStyle.body)
                 .foregroundStyle(ArtShelfStyle.inkSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.top, 5)
-
             Button {
                 appState.showingAddSheet = true
             } label: {
                 Label("添加收藏", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
-            .padding(.top, 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()

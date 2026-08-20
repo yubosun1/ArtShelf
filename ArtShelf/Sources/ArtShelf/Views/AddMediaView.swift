@@ -40,7 +40,7 @@ struct AddMediaView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Text("添加收藏")
-                .font(ArtShelfStyle.title(14))
+                .font(ArtShelfStyle.serifTitle(20))
                 .foregroundStyle(ArtShelfStyle.ink)
 
             Spacer()
@@ -57,7 +57,7 @@ struct AddMediaView: View {
             .help("关闭")
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .background(ArtShelfStyle.surface)
     }
 
@@ -123,7 +123,7 @@ struct AddMediaView: View {
                 ProgressView()
                     .controlSize(.small)
                 Text("正在搜索…")
-                    .font(ArtShelfStyle.body)
+                    .font(ArtShelfStyle.serifTitle(15))
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
         } else if !results.isEmpty {
@@ -132,7 +132,7 @@ struct AddMediaView: View {
             centered {
                 emptyGlyph("magnifyingglass")
                 Text("没有找到结果")
-                    .font(ArtShelfStyle.title(14))
+                    .font(ArtShelfStyle.serifTitle(15))
                     .foregroundStyle(ArtShelfStyle.ink)
                 Text("换个说法，或者手动添加。")
                     .font(ArtShelfStyle.body)
@@ -142,7 +142,7 @@ struct AddMediaView: View {
             centered {
                 emptyGlyph(selectedType.systemImage)
                 Text("搜索\(selectedType.rawValue)")
-                    .font(ArtShelfStyle.title(14))
+                    .font(ArtShelfStyle.serifTitle(15))
                     .foregroundStyle(ArtShelfStyle.ink)
                 Text("输入名称后按回车。")
                     .font(ArtShelfStyle.body)
@@ -350,10 +350,7 @@ struct AddMediaView: View {
             }
         }
         .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
-                .fill(ArtShelfStyle.well.opacity(0.6))
-        )
+        .panelBackground()
     }
 
     // MARK: - 搜索
@@ -498,7 +495,7 @@ private struct ResultRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(result.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(ArtShelfStyle.serifTitle(13, weight: .medium))
                     .foregroundStyle(ArtShelfStyle.ink)
                     .lineLimit(2)
 
@@ -510,12 +507,12 @@ private struct ResultRow: View {
                         Text(String(year)).monospacedDigit()
                     }
                 }
-                .font(.system(size: 10.5))
+                .font(ArtShelfStyle.cardMeta)
                 .foregroundStyle(ArtShelfStyle.inkSecondary)
 
                 if let synopsis = result.synopsis, !synopsis.isEmpty {
                     Text(synopsis)
-                        .font(.system(size: 10.5))
+                        .font(ArtShelfStyle.cardMeta)
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                         .lineLimit(2)
                         .lineSpacing(2)
@@ -529,7 +526,7 @@ private struct ResultRow: View {
         .padding(.vertical, 11)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(isHovered && !isAdded ? ArtShelfStyle.hoverFill : .clear)
         )
         .contentShape(Rectangle())

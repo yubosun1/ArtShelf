@@ -47,10 +47,9 @@ struct LibraryFilterBar: View {
             .accessibilityHidden(!hasActiveFilter)
             .help("清除筛选条件")
         }
-        .padding(.horizontal, ArtShelfStyle.contentPadding)
+        // 无底、无横向内边距——筛选控件簇直接嵌在页眉右侧，由页眉容器提供留白
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ArtShelfStyle.surface)
     }
 
     private var statusMenu: some View {
@@ -73,6 +72,9 @@ struct LibraryFilterBar: View {
             )
         }
         .menuStyle(.borderlessButton)
+        // borderlessButton 的 Menu 会用 tint 给 label 上色，盖过内部的 foregroundStyle——
+        // 未激活时把 tint 压回墨色，激活时才落朱砂
+        .tint(appState.selectedStatus != nil ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .fixedSize()
         .help("按状态筛选")
     }
@@ -95,6 +97,7 @@ struct LibraryFilterBar: View {
             )
         }
         .menuStyle(.borderlessButton)
+        .tint(appState.selectedTimeFilter != .all ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .fixedSize()
         .help("按最近浏览时间筛选")
     }
@@ -117,6 +120,7 @@ struct LibraryFilterBar: View {
             )
         }
         .menuStyle(.borderlessButton)
+        .tint(appState.selectedSort != .smart ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .fixedSize()
         .help("更改排序方式")
     }
@@ -139,6 +143,8 @@ private struct FilterMenuLabel: View {
     /// 标题区的最小宽度，避免切换选项时文字宽度变化导致整个控件栏抖动
     var textMinWidth: CGFloat = 0
 
+    @State private var isHovered = false
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
@@ -154,10 +160,19 @@ private struct FilterMenuLabel: View {
         .foregroundStyle(isActive ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .padding(.horizontal, 10)
         .frame(height: 26)
+        // 默认无底——只有文字与图标；悬停给一层淡灰底，选中才落朱砂浅底
         .background {
-            RoundedRectangle(cornerRadius: ArtShelfStyle.controlRadius, style: .continuous)
-                .fill(isActive ? ArtShelfStyle.accentWash : ArtShelfStyle.well)
+            if isActive {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(ArtShelfStyle.accentWash)
+            } else if isHovered {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(ArtShelfStyle.hoverFill)
+            }
         }
         .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.12)) { isHovered = hovering }
+        }
     }
 }

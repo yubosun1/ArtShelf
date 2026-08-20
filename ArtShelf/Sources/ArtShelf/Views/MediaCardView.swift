@@ -37,11 +37,11 @@ struct MediaCardView: View {
                 cornerRadius: ArtShelfStyle.cardRadius
             )
             .frame(width: ArtShelfStyle.cardWidth)
-            .offset(y: isHovered ? -3 : 0)
+            .offset(y: isHovered ? -2 : 0)
 
             if isHovered {
                 hoverBadge
-                    .offset(y: -3)
+                    .offset(y: -2)
                     .transition(.opacity)
             }
         }
@@ -57,16 +57,14 @@ struct MediaCardView: View {
             .font(.system(size: 10, weight: .bold))
             .foregroundStyle(ArtShelfStyle.ink)
             .frame(width: 24, height: 24)
-            .background(.regularMaterial, in: Circle())
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .padding(6)
     }
 
-    /// 托住封面的书架横木
+    /// 托住封面的书脊木沿——受光面到背光面的细渐变，让一排封面像立在木头上
     private var shelfLine: some View {
-        ArtShelfStyle.shelf
-            .frame(height: 2)
-            .clipShape(Capsule())
-            .padding(.top, 4)
+        ShelfLedge()
+            .padding(.top, 5)
     }
 
     // MARK: - 文字
@@ -81,21 +79,27 @@ struct MediaCardView: View {
                 .frame(maxWidth: .infinity, minHeight: 31, alignment: .topLeading)
 
             HStack(spacing: 5) {
-                Circle()
+                // 3.5pt 小方印，圆角 0.5——像钤在纸上的印章，不再用圆点
+                RoundedRectangle(cornerRadius: 0.5, style: .continuous)
                     .fill(item.status.color)
-                    .frame(width: 4.5, height: 4.5)
+                    .frame(width: 3.5, height: 3.5)
 
                 Text(item.status.label(for: item.type))
 
                 if let creator = item.creator, !creator.isEmpty {
                     Text("·")
-                    Text(creator).lineLimit(1)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    Text(creator)
+                        .lineLimit(1)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
                 }
 
                 Spacer(minLength: 2)
 
                 if let year = item.year {
-                    Text(String(year)).monospacedDigit()
+                    Text(String(year))
+                        .monospacedDigit()
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
                 }
             }
             .font(ArtShelfStyle.cardMeta)

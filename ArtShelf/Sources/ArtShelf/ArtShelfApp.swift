@@ -12,7 +12,7 @@ struct ArtShelfApp: App {
                 .environmentObject(store)
                 .environmentObject(appState)
                 .tint(ArtShelfStyle.accent)
-                .frame(minWidth: 960, minHeight: 640)
+                .frame(minWidth: 980, minHeight: 640)
         }
         .defaultSize(width: 1280, height: 820)
         .windowToolbarStyle(.unified)

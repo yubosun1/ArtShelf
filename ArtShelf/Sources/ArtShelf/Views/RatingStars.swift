@@ -9,11 +9,12 @@ struct RatingStars: View {
     @State private var hoverRating: Int = 0
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3) {
             ForEach(1...5, id: \.self) { star in
                 Image(systemName: star <= currentRating ? "star.fill" : "star")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(star <= currentRating ? ArtShelfStyle.accent : ArtShelfStyle.inkTertiary)
+                    .font(.system(size: 13, weight: .medium))
+                    // 未选中的星用发丝线色，几乎隐于纸面；选中的才落朱砂
+                    .foregroundStyle(star <= currentRating ? ArtShelfStyle.accent : ArtShelfStyle.rule)
                     .onHover { hovering in
                         if onRate != nil {
                             hoverRating = hovering ? star : 0

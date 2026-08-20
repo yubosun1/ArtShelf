@@ -32,7 +32,7 @@ struct CoverImageView: View {
             .overlay {
                 shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
             }
-            .shadow(color: ArtShelfStyle.coverShadow, radius: 3, x: 0, y: 2)
+            .shadow(color: ArtShelfStyle.coverShadow, radius: 2, x: 0, y: 1)
     }
 
     @ViewBuilder
@@ -64,8 +64,8 @@ struct CoverImageView: View {
     private var placeholder: some View {
         ArtShelfStyle.well
             .overlay {
-                Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 24, weight: .light))
+                Image(systemName: "photo")
+                    .font(.system(size: 24, weight: .ultraLight))
                     .foregroundStyle(.tertiary)
             }
     }
