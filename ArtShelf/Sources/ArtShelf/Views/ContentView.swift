@@ -25,5 +25,6 @@ struct ContentView: View {
                 .environmentObject(appState)
                 .frame(minWidth: 800, minHeight: 560)
         }
+        .background(WindowScrollbarKiller())
     }
 }
