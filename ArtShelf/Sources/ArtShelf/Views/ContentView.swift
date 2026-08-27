@@ -10,19 +10,24 @@ struct ContentView: View {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 180, ideal: 198, max: 230)
         } detail: {
-            BookshelfView()
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            appState.showingAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .help("添加收藏 (⌘N)")
-                    }
+            Group {
+                if appState.isHome {
+                    HomeView()
+                } else {
+                    BookshelfView()
                 }
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        appState.showingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .help("添加收藏 (⌘N)")
+                }
+            }
         }
-
         .searchable(text: $appState.searchText, placement: .toolbar, prompt: "搜索收藏")
         .sheet(isPresented: $appState.showingAddSheet) {
             AddMediaView()

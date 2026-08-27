@@ -71,6 +71,24 @@ final class AppState: ObservableObject {
     /// 资料库排序方式
     @Published var selectedSort: LibrarySortOption = .smart
 
+    /// 是否处于画廊主页视图（未选分类、未选标签、未搜索）
+    var isHome: Bool {
+        selectedCategory == nil && selectedTag == nil && searchText.isEmpty
+    }
+
+    func navigateToHome() {
+        selectedCategory = nil
+        selectedTag = nil
+        searchText = ""
+        clearBrowseFilters()
+    }
+
+    func navigateToCategory(_ type: MediaType) {
+        selectedCategory = type
+        selectedTag = nil
+        clearBrowseFilters()
+    }
+
     func clearBrowseFilters() {
         selectedStatus = nil
         selectedTimeFilter = .all

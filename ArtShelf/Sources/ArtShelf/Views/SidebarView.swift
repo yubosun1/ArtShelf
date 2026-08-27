@@ -15,12 +15,14 @@ struct SidebarView: View {
                         .padding(.bottom, 6)
 
                     sidebarRow(
-                        title: "全部收藏",
-                        icon: "square.grid.2x2.fill",
+                        title: "主页",
+                        icon: "sparkles",
                         count: store.items.count,
-                        isSelected: appState.selectedCategory == nil && appState.selectedTag == nil
+                        isSelected: appState.isHome
                     ) {
-                        selectCategory(nil)
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            appState.navigateToHome()
+                        }
                     }
 
                     ForEach(MediaType.allCases) { type in
