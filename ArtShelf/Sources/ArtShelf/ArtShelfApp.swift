@@ -6,10 +6,6 @@ struct ArtShelfApp: App {
     @StateObject private var store = DataStore()
     @StateObject private var appState = AppState()
 
-    init() {
-        ScrollbarKiller.install()
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
