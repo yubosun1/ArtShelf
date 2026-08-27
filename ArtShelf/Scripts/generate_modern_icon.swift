@@ -14,7 +14,7 @@ ctx.setAllowsAntialiasing(true)
 ctx.setShouldAntialias(true)
 ctx.interpolationQuality = .high
 
-// 1. Clear background
+// Clear canvas
 ctx.clear(CGRect(x: 0, y: 0, width: side, height: side))
 
 func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1.0) -> CGColor {
@@ -30,106 +30,116 @@ func hexColor(_ hex: UInt32, alpha: CGFloat = 1.0) -> CGColor {
     )
 }
 
-// 2. Apple Standard macOS Squircle Geometry (824x824 centered in 1024x1024)
+let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+// 1. Apple Standard macOS Squircle Geometry (824x824 centered in 1024x1024)
 let plateRect = CGRect(x: 100, y: 100, width: 824, height: 824)
 let cornerRadius: CGFloat = 185.0
 let squirclePath = CGPath(roundedRect: plateRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
 
-// 3. Drop Shadow for the Squircle (macOS Dock elevation on bright plate)
+// 2. Dock Ambient Drop Shadow
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -22), blur: 32, color: rgb(0, 0, 0, 0.22))
-ctx.setFillColor(rgb(1, 1, 1, 1.0))
+ctx.setShadow(offset: CGSize(width: 0, height: -26), blur: 36, color: rgb(0, 0, 0, 0.40))
+ctx.setFillColor(rgb(0, 0, 0, 1.0))
 ctx.addPath(squirclePath)
 ctx.fillPath()
 ctx.restoreGState()
 
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -8), blur: 14, color: rgb(0, 0, 0, 0.14))
-ctx.setFillColor(rgb(1, 1, 1, 1.0))
+ctx.setShadow(offset: CGSize(width: 0, height: -8), blur: 14, color: rgb(0, 0, 0, 0.25))
+ctx.setFillColor(rgb(0, 0, 0, 1.0))
 ctx.addPath(squirclePath)
 ctx.fillPath()
 ctx.restoreGState()
 
-// 4. Clip to squircle for internal drawing
+// 3. Squircle Background: Apple Electric Klein Indigo Gradient
 ctx.saveGState()
 ctx.addPath(squirclePath)
 ctx.clip()
 
-// Background: Luminous, elegant warm platinum / architectural gallery canvas
-let colorSpace = CGColorSpaceCreateDeviceRGB()
 let bgColors = [
-    hexColor(0xFCFAF7), // Top: pristine warm gallery white
-    hexColor(0xF4F0E8), // Mid: subtle warm silk
-    hexColor(0xE5DFD3)  // Bottom: soft warm stone
+    hexColor(0x3B64F2), // Top: vibrant royal electric indigo
+    hexColor(0x2244BC), // Mid: rich deep ultramarine
+    hexColor(0x11237A)  // Bottom: midnight deep sapphire
 ] as CFArray
-let bgLocations: [CGFloat] = [0.0, 0.5, 1.0]
-if let bgGradient = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: bgLocations) {
-    ctx.drawLinearGradient(bgGradient,
+if let bgGrad = CGGradient(colorsSpace: colorSpace, colors: bgColors, locations: [0.0, 0.52, 1.0]) {
+    ctx.drawLinearGradient(bgGrad,
                            start: CGPoint(x: 512, y: 924),
                            end: CGPoint(x: 512, y: 100),
                            options: [])
 }
 
-// Smooth top ambient daylight sheen
-let spotColors = [
-    rgb(1, 1, 1, 0.45),
-    rgb(1, 1, 1, 0.15),
-    rgb(1, 1, 1, 0.0)
+// Subtle top ambient spotlight
+let glowColors = [
+    rgb(1, 1, 1, 0.25),
+    rgb(0.55, 0.75, 1.0, 0.08),
+    rgb(0, 0, 0, 0.0)
 ] as CFArray
-if let radialGradient = CGGradient(colorsSpace: colorSpace, colors: spotColors, locations: [0.0, 0.5, 1.0]) {
-    ctx.drawRadialGradient(radialGradient,
-                           startCenter: CGPoint(x: 512, y: 924),
+if let glowGrad = CGGradient(colorsSpace: colorSpace, colors: glowColors, locations: [0.0, 0.45, 1.0]) {
+    ctx.drawRadialGradient(glowGrad,
+                           startCenter: CGPoint(x: 512, y: 880),
                            startRadius: 0,
-                           endCenter: CGPoint(x: 512, y: 924),
-                           endRadius: 580,
+                           endCenter: CGPoint(x: 512, y: 880),
+                           endRadius: 540,
                            options: [])
 }
 
 // -------------------------------------------------------------------------
-// 5. Bookshelf Plinth (Horizontal Base)
+// 4. Central Composition: Floating Minimalist Media Atelier
 // -------------------------------------------------------------------------
-let shelfY: CGFloat = 280
-let shelfHeight: CGFloat = 46
-let shelfRect = CGRect(x: 100, y: shelfY - shelfHeight, width: 824, height: shelfHeight)
 
-// Shelf Shadow below (ambient shadow on light floor)
+// --- A. FLOATING HORIZONTAL SHELF PLINTH (Base) ---
+let shelfWidth: CGFloat = 580
+let shelfHeight: CGFloat = 20
+let shelfX: CGFloat = 512 - shelfWidth / 2
+let shelfY: CGFloat = 330
+let shelfRect = CGRect(x: shelfX, y: shelfY, width: shelfWidth, height: shelfHeight)
+let shelfPath = CGPath(roundedRect: shelfRect, cornerWidth: 10, cornerHeight: 10, transform: nil)
+
+// Shelf Shadow below
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -14), blur: 20, color: rgb(0, 0, 0, 0.18))
-ctx.setFillColor(hexColor(0x3E2D20))
-ctx.fill(shelfRect)
+ctx.setShadow(offset: CGSize(width: 0, height: -14), blur: 24, color: rgb(0, 0, 0, 0.55))
+ctx.setFillColor(hexColor(0x060B20))
+ctx.addPath(shelfPath)
+ctx.fillPath()
 ctx.restoreGState()
 
-// Shelf body gradient (fine dark walnut tone)
-let woodColors = [
-    hexColor(0x5E4430),
-    hexColor(0x432F20),
-    hexColor(0x2B1D13)
+// Shelf Body (Frosted Pure Platinum White / Titanium Glass)
+ctx.saveGState()
+ctx.addPath(shelfPath)
+ctx.clip()
+let shelfColors = [
+    rgb(1, 1, 1, 0.95),
+    rgb(0.90, 0.93, 1.0, 0.85),
+    rgb(0.75, 0.80, 0.92, 0.80)
 ] as CFArray
-if let woodGrad = CGGradient(colorsSpace: colorSpace, colors: woodColors, locations: [0.0, 0.4, 1.0]) {
-    ctx.drawLinearGradient(woodGrad,
-                           start: CGPoint(x: 512, y: shelfY),
-                           end: CGPoint(x: 512, y: shelfY - shelfHeight),
+if let sGrad = CGGradient(colorsSpace: colorSpace, colors: shelfColors, locations: [0.0, 0.5, 1.0]) {
+    ctx.drawLinearGradient(sGrad,
+                           start: CGPoint(x: 512, y: shelfY + shelfHeight),
+                           end: CGPoint(x: 512, y: shelfY),
                            options: [])
 }
+ctx.restoreGState()
 
-// Shelf top bevel highlight
-let shelfBevel = CGRect(x: 100, y: shelfY - 2.5, width: 824, height: 2.5)
-ctx.setFillColor(hexColor(0xA68564, alpha: 0.95))
-ctx.fill(shelfBevel)
-
-// -------------------------------------------------------------------------
-// 6. Artwork Elements (High contrast on bright canvas)
-// -------------------------------------------------------------------------
-
-// --- ELEMENT A: VINYL RECORD (Behind book on right) ---
-let vinylCenter = CGPoint(x: 575, y: 535)
-let vinylRadius: CGFloat = 218
-
-// Vinyl drop shadow onto light background
+// Shelf top specular line
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 6, height: -18), blur: 28, color: rgb(0, 0, 0, 0.26))
+ctx.setLineWidth(1.6)
+ctx.setStrokeColor(rgb(1, 1, 1, 0.95))
+ctx.move(to: CGPoint(x: shelfX + 10, y: shelfY + shelfHeight - 0.8))
+ctx.addLine(to: CGPoint(x: shelfX + shelfWidth - 10, y: shelfY + shelfHeight - 0.8))
+ctx.strokePath()
+ctx.restoreGState()
+
+// --- B. VINYL RECORD (Music) ---
+// Positioned on the right side of the shelf
+let vinylCenter = CGPoint(x: 565, y: 535)
+let vinylRadius: CGFloat = 195
+
+// Vinyl drop shadow onto background
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 6, height: -16), blur: 28, color: rgb(0, 0, 0, 0.50))
 ctx.addArc(center: vinylCenter, radius: vinylRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-ctx.setFillColor(hexColor(0x0C0D0E))
+ctx.setFillColor(hexColor(0x08090C))
 ctx.fillPath()
 ctx.restoreGState()
 
@@ -138,31 +148,40 @@ ctx.saveGState()
 ctx.addArc(center: vinylCenter, radius: vinylRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
 ctx.clip()
 
-// Base disc color
-ctx.setFillColor(hexColor(0x131418))
-ctx.fill(CGRect(x: vinylCenter.x - vinylRadius, y: vinylCenter.y - vinylRadius, width: vinylRadius * 2, height: vinylRadius * 2))
+// Jet-black disc gradient
+let discColors = [
+    hexColor(0x282B34),
+    hexColor(0x141518),
+    hexColor(0x090A0C)
+] as CFArray
+if let discGrad = CGGradient(colorsSpace: colorSpace, colors: discColors, locations: [0.0, 0.5, 1.0]) {
+    ctx.drawLinearGradient(discGrad,
+                           start: CGPoint(x: vinylCenter.x - vinylRadius, y: vinylCenter.y + vinylRadius),
+                           end: CGPoint(x: vinylCenter.x + vinylRadius, y: vinylCenter.y - vinylRadius),
+                           options: [])
+}
 
-// Concentric vinyl micro-grooves
-for r in stride(from: CGFloat(94), to: vinylRadius - 6, by: 4.2) {
+// Precision micro-groove arcs
+for r in stride(from: CGFloat(72), to: vinylRadius - 6, by: 6.0) {
     ctx.setLineWidth(1.0)
-    let alpha = (Int(r) % 8 == 0) ? 0.28 : 0.08
+    let alpha = (Int(r) % 12 == 0) ? 0.26 : 0.08
     ctx.setStrokeColor(rgb(1, 1, 1, CGFloat(alpha)))
     ctx.addArc(center: vinylCenter, radius: r, startAngle: 0, endAngle: .pi * 2, clockwise: false)
     ctx.strokePath()
 }
 
-// Radial iridescent sheen
+// Iridescent dual-beam specular sheen
 let sheenColors = [
     rgb(1, 1, 1, 0.0),
-    rgb(1, 0.88, 0.65, 0.18),
-    rgb(0.65, 0.82, 1, 0.20),
+    rgb(0.65, 0.85, 1.0, 0.26),
+    rgb(1, 0.85, 0.65, 0.22),
     rgb(1, 1, 1, 0.0)
 ] as CFArray
-if let sheenGrad = CGGradient(colorsSpace: colorSpace, colors: sheenColors, locations: [0.0, 0.45, 0.55, 1.0]) {
-    for angle in [0.72, 2.35] {
+if let sheenGrad = CGGradient(colorsSpace: colorSpace, colors: sheenColors, locations: [0.0, 0.46, 0.54, 1.0]) {
+    for rot in [0.72, 2.35] {
         ctx.saveGState()
         ctx.translateBy(x: vinylCenter.x, y: vinylCenter.y)
-        ctx.rotate(by: CGFloat(angle))
+        ctx.rotate(by: CGFloat(rot))
         ctx.drawLinearGradient(sheenGrad,
                                start: CGPoint(x: -vinylRadius, y: -vinylRadius),
                                end: CGPoint(x: vinylRadius, y: vinylRadius),
@@ -171,272 +190,172 @@ if let sheenGrad = CGGradient(colorsSpace: colorSpace, colors: sheenColors, loca
     }
 }
 
-// Center record label
-let labelRadius: CGFloat = 78
-let labelColors = [
-    hexColor(0x3B62F0), // Modern Electric Klein Blue
-    hexColor(0x2045C8)
-] as CFArray
-if let labelGrad = CGGradient(colorsSpace: colorSpace, colors: labelColors, locations: [0.0, 1.0]) {
-    ctx.saveGState()
-    ctx.addArc(center: vinylCenter, radius: labelRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-    ctx.clip()
-    ctx.drawLinearGradient(labelGrad,
-                           start: CGPoint(x: vinylCenter.x - labelRadius, y: vinylCenter.y + labelRadius),
-                           end: CGPoint(x: vinylCenter.x + labelRadius, y: vinylCenter.y - labelRadius),
-                           options: [])
-    
-    // Golden concentric rings on label
-    ctx.setLineWidth(1.8)
-    ctx.setStrokeColor(hexColor(0xFFE4A0, alpha: 0.8))
-    ctx.addArc(center: vinylCenter, radius: labelRadius - 16, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-    ctx.strokePath()
-    
-    ctx.setLineWidth(1.0)
-    ctx.setStrokeColor(hexColor(0xFFE4A0, alpha: 0.45))
-    ctx.addArc(center: vinylCenter, radius: labelRadius - 28, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-    ctx.strokePath()
-    
-    // Spindle hole
-    let spindleRadius: CGFloat = 16
-    ctx.setFillColor(hexColor(0x0C0D0E))
-    ctx.addArc(center: vinylCenter, radius: spindleRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-    ctx.fillPath()
-    ctx.setLineWidth(1.5)
-    ctx.setStrokeColor(rgb(1, 1, 1, 0.4))
-    ctx.strokePath()
-    ctx.restoreGState()
-}
+// Spindle hole
+ctx.setFillColor(hexColor(0x090A0C))
+ctx.addArc(center: vinylCenter, radius: 14, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+ctx.fillPath()
+ctx.setLineWidth(1.2)
+ctx.setStrokeColor(rgb(1, 1, 1, 0.4))
+ctx.strokePath()
+
 ctx.restoreGState() // end vinyl clip
 
-// --- ELEMENT B: CELLULOID FILM STRIP (Cinema) ---
-ctx.saveGState()
-ctx.translateBy(x: 700, y: 280)
-ctx.rotate(by: -0.045) // ~2.6 degrees tilt
-ctx.translateBy(x: -700, y: -280)
+// --- C. CELLULOID FILM FRAME (Cinema - Glowing Amber Window) ---
+// Overlapping the vinyl record's center
+let filmX: CGFloat = 525
+let filmY: CGFloat = 485
+let filmW: CGFloat = 82
+let filmH: CGFloat = 98
+let filmRect = CGRect(x: filmX, y: filmY, width: filmW, height: filmH)
+let filmPath = CGPath(roundedRect: filmRect, cornerWidth: 12, cornerHeight: 12, transform: nil)
 
-let filmRect = CGRect(x: 645, y: 280, width: 125, height: 360)
-let filmPath = CGPath(roundedRect: filmRect, cornerWidth: 6, cornerHeight: 6, transform: nil)
-
-// Film shadow
+// Warm golden bloom
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: -8, height: -14), blur: 20, color: rgb(0, 0, 0, 0.22))
-ctx.setFillColor(hexColor(0x1B1612))
+ctx.setShadow(offset: CGSize(width: 0, height: 0), blur: 30, color: hexColor(0xF59E0B, alpha: 0.80))
+ctx.setFillColor(hexColor(0xF59E0B))
 ctx.addPath(filmPath)
 ctx.fillPath()
 ctx.restoreGState()
 
-// Film translucent amber body
+// Film Frame Body
 ctx.saveGState()
 ctx.addPath(filmPath)
 ctx.clip()
-
 let filmColors = [
-    hexColor(0x3E2718, alpha: 0.94),
-    hexColor(0x52341F, alpha: 0.96),
-    hexColor(0x2D1A0F, alpha: 0.97)
+    hexColor(0xFFDE73),
+    hexColor(0xF59E0B),
+    hexColor(0xD97706)
 ] as CFArray
-if let filmGrad = CGGradient(colorsSpace: colorSpace, colors: filmColors, locations: [0.0, 0.5, 1.0]) {
-    ctx.drawLinearGradient(filmGrad, start: CGPoint(x: 645, y: 640), end: CGPoint(x: 770, y: 280), options: [])
+if let fGrad = CGGradient(colorsSpace: colorSpace, colors: filmColors, locations: [0.0, 0.5, 1.0]) {
+    ctx.drawLinearGradient(fGrad,
+                           start: CGPoint(x: filmX, y: filmY + filmH),
+                           end: CGPoint(x: filmX, y: filmY),
+                           options: [])
 }
 
-// Sprocket holes along left and right
-func drawFilmPerforations(startX: CGFloat, stepY: CGFloat) {
-    for y in stride(from: CGFloat(295), to: 625, by: stepY) {
-        let perfRect = CGRect(x: startX - 5, y: y, width: 10, height: 16)
-        let perfPath = CGPath(roundedRect: perfRect, cornerWidth: 2.5, cornerHeight: 2.5, transform: nil)
-        ctx.setFillColor(hexColor(0x0F0F14, alpha: 0.95))
-        ctx.addPath(perfPath)
-        ctx.fillPath()
-        ctx.setLineWidth(0.8)
-        ctx.setStrokeColor(rgb(1, 0.82, 0.55, 0.3))
-        ctx.addPath(perfPath)
-        ctx.strokePath()
-    }
-}
-drawFilmPerforations(startX: 656, stepY: 28)
-drawFilmPerforations(startX: 758, stepY: 28)
+// Inner projection window
+let projRect = filmRect.insetBy(dx: 11, dy: 13)
+let projPath = CGPath(roundedRect: projRect, cornerWidth: 6, cornerHeight: 6, transform: nil)
+ctx.setFillColor(hexColor(0x181410, alpha: 0.92))
+ctx.addPath(projPath)
+ctx.fillPath()
 
-// Film frames (glowing cinema windows)
-for frameY in stride(from: CGFloat(300), to: 600, by: 105) {
-    let windowRect = CGRect(x: 668, y: frameY, width: 78, height: 92)
-    let windowPath = CGPath(roundedRect: windowRect, cornerWidth: 5, cornerHeight: 5, transform: nil)
-    let frameColors = [
-        hexColor(0xFFBA54, alpha: 0.35),
-        hexColor(0x4A2C16, alpha: 0.65)
-    ] as CFArray
-    if let frameGrad = CGGradient(colorsSpace: colorSpace, colors: frameColors, locations: [0.0, 1.0]) {
-        ctx.saveGState()
-        ctx.addPath(windowPath)
-        ctx.clip()
-        ctx.drawLinearGradient(frameGrad,
-                               start: CGPoint(x: 707, y: frameY + 92),
-                               end: CGPoint(x: 707, y: frameY),
-                               options: [])
-        ctx.restoreGState()
-    }
-    ctx.setLineWidth(1.2)
-    ctx.setStrokeColor(hexColor(0xFFAC3B, alpha: 0.5))
-    ctx.addPath(windowPath)
-    ctx.strokePath()
+// Inner warm projector glow
+let innerGlow = projRect.insetBy(dx: 7, dy: 8)
+let innerPath = CGPath(roundedRect: innerGlow, cornerWidth: 3, cornerHeight: 3, transform: nil)
+ctx.setFillColor(hexColor(0xFFEAA0, alpha: 0.95))
+ctx.addPath(innerPath)
+ctx.fillPath()
+
+// Sprocket perforations
+for py in stride(from: filmRect.minY + 16, to: filmRect.maxY - 10, by: 20) {
+    let pL = CGRect(x: filmRect.minX + 3.5, y: py, width: 4, height: 7)
+    let pR = CGRect(x: filmRect.maxX - 7.5, y: py, width: 4, height: 7)
+    ctx.setFillColor(hexColor(0x181410, alpha: 0.65))
+    ctx.fill(pL)
+    ctx.fill(pR)
 }
 ctx.restoreGState() // end film clip
-ctx.restoreGState() // end tilt
 
-// --- ELEMENT C: HARDCOVER ART BOOK (Foreground Masterpiece) ---
-let bookX: CGFloat = 255
-let bookY: CGFloat = 280
-let bookWidth: CGFloat = 205
-let bookHeight: CGFloat = 445
-let bookRect = CGRect(x: bookX, y: bookY, width: bookWidth, height: bookHeight)
-
-// Book drop shadow onto shelf and vinyl
+// Film Bevel Border
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 14, height: -18), blur: 30, color: rgb(0, 0, 0, 0.32))
-let bookCorner: CGFloat = 8
+ctx.setLineWidth(2.0)
+ctx.setStrokeColor(rgb(1, 1, 1, 0.85))
+ctx.addPath(filmPath)
+ctx.strokePath()
+ctx.restoreGState()
+
+// --- D. MODERN HARDCOVER ART BOOK (Literature) ---
+// Standing on the left side of the shelf, partially overlapping the vinyl
+let bookX: CGFloat = 300
+let bookY: CGFloat = shelfY + shelfHeight - 4
+let bookW: CGFloat = 162
+let bookH: CGFloat = 350
+let bookRect = CGRect(x: bookX, y: bookY, width: bookW, height: bookH)
+let bookCorner: CGFloat = 10
 let bookPath = CGPath(roundedRect: bookRect, cornerWidth: bookCorner, cornerHeight: bookCorner, transform: nil)
-ctx.setFillColor(hexColor(0x131E2B))
+
+// Book Drop Shadow onto vinyl and shelf
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 12, height: -16), blur: 28, color: rgb(0, 0, 0, 0.45))
+ctx.setFillColor(hexColor(0x101524))
 ctx.addPath(bookPath)
 ctx.fillPath()
 ctx.restoreGState()
 
-// Book Cover Texture (Sapphire / Royal Midnight Blue Linen Cloth)
+// Book Cover Body (Pure Architectural Platinum Ivory with subtle warmth)
 ctx.saveGState()
 ctx.addPath(bookPath)
 ctx.clip()
 
 let bookCoverColors = [
-    hexColor(0x2F527C), // Top highlight
-    hexColor(0x1E3858), // Rich Prussian blue
-    hexColor(0x132338)  // Deep midnight base
+    hexColor(0xFFFFFF), // Top pure highlight
+    hexColor(0xF0ECE1), // Subtle warm ivory
+    hexColor(0xDBD5C4)  // Base warm stone
 ] as CFArray
-if let bookGrad = CGGradient(colorsSpace: colorSpace, colors: bookCoverColors, locations: [0.0, 0.45, 1.0]) {
-    ctx.drawLinearGradient(bookGrad,
-                           start: CGPoint(x: bookX, y: bookY + bookHeight),
-                           end: CGPoint(x: bookX + bookWidth, y: bookY),
+if let bGrad = CGGradient(colorsSpace: colorSpace, colors: bookCoverColors, locations: [0.0, 0.5, 1.0]) {
+    ctx.drawLinearGradient(bGrad,
+                           start: CGPoint(x: bookX, y: bookY + bookH),
+                           end: CGPoint(x: bookX + bookW, y: bookY),
                            options: [])
 }
 
-// Book spine ridge
-let spineWidth: CGFloat = 28
-let spineRect = CGRect(x: bookX, y: bookY, width: spineWidth, height: bookHeight)
+// Spine Ridge on Left
+let spineW: CGFloat = 24
+let spineRect = CGRect(x: bookX, y: bookY, width: spineW, height: bookH)
 let spineColors = [
-    hexColor(0x4871A5, alpha: 0.8),
-    hexColor(0x1B2E47, alpha: 0.1),
-    hexColor(0x0E1928, alpha: 0.7)
+    hexColor(0xEAE4D5, alpha: 0.9),
+    hexColor(0xD2C9B6, alpha: 0.5),
+    hexColor(0xB5AB94, alpha: 0.9)
 ] as CFArray
-if let spineGrad = CGGradient(colorsSpace: colorSpace, colors: spineColors, locations: [0.0, 0.4, 1.0]) {
+if let spineGrad = CGGradient(colorsSpace: colorSpace, colors: spineColors, locations: [0.0, 0.5, 1.0]) {
     ctx.drawLinearGradient(spineGrad,
                            start: CGPoint(x: bookX, y: bookY),
-                           end: CGPoint(x: bookX + spineWidth, y: bookY),
+                           end: CGPoint(x: bookX + spineW, y: bookY),
                            options: [])
 }
 
-// Embossed Gold Foil Inlay Lines on book cover
-ctx.saveGState()
-let goldLineX = bookX + spineWidth + 16
-let goldWidth = bookWidth - spineWidth - 32
-let goldLineY2 = bookY + 65
+// Embossed Gold Foil Accent on Cover
+let goldX = bookX + spineW + 16
+let goldW = bookW - spineW - 30
 
-let goldColor = hexColor(0xF0C97F, alpha: 0.95)
-ctx.setStrokeColor(goldColor)
-
-// Top gold title cartouche / frame
-let emblemRect = CGRect(x: goldLineX, y: bookY + bookHeight - 160, width: goldWidth, height: 75)
-let emblemPath = CGPath(roundedRect: emblemRect, cornerWidth: 3, cornerHeight: 3, transform: nil)
-ctx.setLineWidth(2.0)
-ctx.addPath(emblemPath)
+// Gold vertical bar
+ctx.setLineWidth(2.2)
+ctx.setStrokeColor(hexColor(0xDE9B2A, alpha: 0.95))
+ctx.move(to: CGPoint(x: goldX + 6, y: bookY + 40))
+ctx.addLine(to: CGPoint(x: goldX + 6, y: bookY + bookH - 40))
 ctx.strokePath()
 
-// Decorative gold bars
-for offY in [22.0, 37.0, 52.0] {
-    ctx.setLineWidth(1.4)
-    ctx.move(to: CGPoint(x: goldLineX + 16, y: bookY + bookHeight - 160 + offY))
-    ctx.addLine(to: CGPoint(x: goldLineX + goldWidth - 16, y: bookY + bookHeight - 160 + offY))
+// Minimalist title lines
+for ly in [bookY + bookH - 90, bookY + bookH - 110, bookY + bookH - 130] {
+    ctx.setLineWidth(1.8)
+    ctx.move(to: CGPoint(x: goldX + 20, y: ly))
+    ctx.addLine(to: CGPoint(x: goldX + goldW, y: ly))
     ctx.strokePath()
 }
 
-// Lower gold rules
-ctx.setLineWidth(1.6)
-ctx.move(to: CGPoint(x: goldLineX, y: goldLineY2))
-ctx.addLine(to: CGPoint(x: goldLineX + goldWidth, y: goldLineY2))
-ctx.strokePath()
-ctx.move(to: CGPoint(x: goldLineX, y: goldLineY2 - 9))
-ctx.addLine(to: CGPoint(x: goldLineX + goldWidth, y: goldLineY2 - 9))
-ctx.strokePath()
-ctx.restoreGState()
-
-// Book Page Block Edge (Right side showing elegant cream page layers)
-let pagesX = bookX + bookWidth - 12
-let pagesRect = CGRect(x: pagesX, y: bookY + 6, width: 10, height: bookHeight - 12)
-ctx.setFillColor(hexColor(0xF5EEDF))
-ctx.fill(pagesRect)
-for py in stride(from: bookY + 12, to: bookY + bookHeight - 14, by: 4) {
+// Right Page Edge Strip (layered paper look)
+let pageStrip = CGRect(x: bookX + bookW - 10, y: bookY + 4, width: 8, height: bookH - 8)
+ctx.setFillColor(hexColor(0xF5EFE3))
+ctx.fill(pageStrip)
+for py in stride(from: bookY + 12, to: bookY + bookH - 12, by: 4.5) {
     ctx.setLineWidth(0.6)
-    ctx.setStrokeColor(hexColor(0xC8BC9F, alpha: 0.7))
-    ctx.move(to: CGPoint(x: pagesX, y: py))
-    ctx.addLine(to: CGPoint(x: pagesX + 10, y: py))
+    ctx.setStrokeColor(hexColor(0xC4B89D, alpha: 0.7))
+    ctx.move(to: CGPoint(x: bookX + bookW - 10, y: py))
+    ctx.addLine(to: CGPoint(x: bookX + bookW - 2, y: py))
     ctx.strokePath()
 }
 
-// Book top edge highlight
+// Book Border Specular
 ctx.setLineWidth(1.6)
-ctx.setStrokeColor(rgb(1, 1, 1, 0.4))
-ctx.move(to: CGPoint(x: bookX + 2, y: bookY + bookHeight - 1))
-ctx.addLine(to: CGPoint(x: bookX + bookWidth - 2, y: bookY + bookHeight - 1))
+ctx.setStrokeColor(rgb(1, 1, 1, 0.85))
+ctx.addPath(bookPath)
 ctx.strokePath()
 
 ctx.restoreGState() // end book clip
 
-// --- ELEMENT D: CRIMSON SILK RIBBON BOOKMARK ---
-ctx.saveGState()
-let ribbonPath = CGMutablePath()
-ribbonPath.move(to: CGPoint(x: bookX + 78, y: bookY + bookHeight))
-ribbonPath.addCurve(to: CGPoint(x: bookX + 70, y: bookY + 180),
-                    control1: CGPoint(x: bookX + 82, y: bookY + 360),
-                    control2: CGPoint(x: bookX + 66, y: bookY + 240))
-ribbonPath.addCurve(to: CGPoint(x: bookX + 80, y: shelfY - 32),
-                    control1: CGPoint(x: bookX + 72, y: bookY + 80),
-                    control2: CGPoint(x: bookX + 78, y: shelfY + 20))
-ribbonPath.addLine(to: CGPoint(x: bookX + 96, y: shelfY - 30))
-// Swallow-tail cut
-ribbonPath.addLine(to: CGPoint(x: bookX + 88, y: shelfY - 20))
-ribbonPath.addLine(to: CGPoint(x: bookX + 98, y: shelfY + 25))
-ribbonPath.addCurve(to: CGPoint(x: bookX + 92, y: bookY + bookHeight),
-                    control1: CGPoint(x: bookX + 87, y: bookY + 180),
-                    control2: CGPoint(x: bookX + 97, y: bookY + 360))
-ribbonPath.closeSubpath()
-
-// Ribbon Shadow
-ctx.setShadow(offset: CGSize(width: 4, height: -6), blur: 10, color: rgb(0, 0, 0, 0.28))
-ctx.setFillColor(hexColor(0x821D12))
-ctx.addPath(ribbonPath)
-ctx.fillPath()
-ctx.restoreGState()
-
-// Ribbon Gradient (Rich Crimson / Scarlet Silk)
-ctx.saveGState()
-ctx.addPath(ribbonPath)
-ctx.clip()
-let ribbonColors = [
-    hexColor(0xF04F3B),
-    hexColor(0xCC2A1A),
-    hexColor(0x8C180E)
-] as CFArray
-if let ribbonGrad = CGGradient(colorsSpace: colorSpace, colors: ribbonColors, locations: [0.0, 0.5, 1.0]) {
-    ctx.drawLinearGradient(ribbonGrad,
-                           start: CGPoint(x: bookX + 70, y: bookY + bookHeight),
-                           end: CGPoint(x: bookX + 90, y: shelfY - 35),
-                           options: [])
-}
-ctx.setLineWidth(1.2)
-ctx.setStrokeColor(rgb(1, 0.75, 0.75, 0.5))
-ctx.addPath(ribbonPath)
-ctx.strokePath()
-ctx.restoreGState()
-
 // -------------------------------------------------------------------------
-// 7. Icon Bevel Rim & Specular Polish (Signature Apple Light Icon)
+// 5. Apple Standard Squircle Specular Rim
 // -------------------------------------------------------------------------
 ctx.restoreGState() // end squircle clip
 
@@ -445,12 +364,12 @@ ctx.addPath(squirclePath)
 ctx.clip()
 
 let rimColors = [
-    rgb(1, 1, 1, 0.85), // Pure white specular top edge
-    rgb(1, 1, 1, 0.25),
-    rgb(0, 0, 0, 0.04),
-    rgb(0, 0, 0, 0.14)  // Soft bottom bevel shadow
+    rgb(1, 1, 1, 0.65), // Top specular rim highlight
+    rgb(1, 1, 1, 0.15),
+    rgb(0, 0, 0, 0.05),
+    rgb(0, 0, 0, 0.35)  // Bottom edge shadow
 ] as CFArray
-if let rimGrad = CGGradient(colorsSpace: colorSpace, colors: rimColors, locations: [0.0, 0.25, 0.75, 1.0]) {
+if let rimGrad = CGGradient(colorsSpace: colorSpace, colors: rimColors, locations: [0.0, 0.2, 0.8, 1.0]) {
     ctx.setLineWidth(3.0)
     ctx.addPath(squirclePath)
     ctx.replacePathWithStrokedPath()
@@ -472,4 +391,4 @@ guard let tiff = image.tiffRepresentation,
 
 let outputPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Resources/icon.png"
 try png.write(to: URL(fileURLWithPath: outputPath), options: .atomic)
-print("Successfully generated icon at: \(outputPath)")
+print("Successfully generated modern minimalist icon at: \(outputPath)")

@@ -30,7 +30,6 @@ struct BookshelfView: View {
             }
         }
         .background(ArtShelfStyle.paper)
-        .navigationTitle(navigationTitle)
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
                 .environmentObject(store)

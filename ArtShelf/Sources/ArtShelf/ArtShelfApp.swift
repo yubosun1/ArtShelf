@@ -15,7 +15,7 @@ struct ArtShelfApp: App {
                 .frame(minWidth: 980, minHeight: 640)
         }
         .defaultSize(width: 1280, height: 820)
-        .windowToolbarStyle(.unified)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("添加媒体") { appState.showingAddSheet = true }

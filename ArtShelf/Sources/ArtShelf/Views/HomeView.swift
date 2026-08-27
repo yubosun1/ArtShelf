@@ -74,7 +74,6 @@ struct HomeView: View {
             .padding(.bottom, 48)
         }
         .background(ArtShelfStyle.paper)
-        .navigationTitle("主页")
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
                 .environmentObject(store)
