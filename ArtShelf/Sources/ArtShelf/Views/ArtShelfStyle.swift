@@ -59,16 +59,16 @@ enum ArtShelfStyle {
         dark:  hex(0x636877)
     )
 
-    /// 主强调色：充满艺术活力的高级日落朱砂红（Sunset Terracotta）
+    /// 主强调色：现代艺术画廊风格的克莱因深青蓝 / 极光靛蓝（Electric Klein Indigo）
     static let accent = dynamic(
-        light: hex(0xDE4B30),
-        dark:  hex(0xF06348)
+        light: hex(0x3563E9),
+        dark:  hex(0x5B82F6)
     )
 
     /// 强调色的浅雾底色（选中态背景、药丸指示器）
     static let accentWash = dynamic(
-        light: hex(0xDE4B30, alpha: 0.10),
-        dark:  hex(0xF06348, alpha: 0.18)
+        light: hex(0x3563E9, alpha: 0.10),
+        dark:  hex(0x5B82F6, alpha: 0.18)
     )
 
     /// 发丝分隔线（精细低对比度，消解视觉杂乱）

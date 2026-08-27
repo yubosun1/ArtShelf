@@ -7,12 +7,54 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // 侧栏顶部内嵌搜索框
+            HStack(spacing: 7) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ArtShelfStyle.inkTertiary)
+
+                TextField("搜索收藏…", text: $appState.searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+
+                if !appState.searchText.isEmpty {
+                    Button {
+                        appState.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 28)
+            .wellBackground(radius: 7)
+            .padding(.horizontal, 10)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    SectionLabel(title: "资料库")
-                        .padding(.horizontal, 14)
-                        .padding(.top, 14)
-                        .padding(.bottom, 6)
+                    HStack {
+                        SectionLabel(title: "资料库")
+                        Spacer()
+                        Button {
+                            appState.showingAddSheet = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(ArtShelfStyle.inkSecondary)
+                                .frame(width: 20, height: 20)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("添加收藏 (⌘N)")
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
 
                     sidebarRow(
                         title: "主页",
