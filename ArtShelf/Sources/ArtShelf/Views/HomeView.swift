@@ -20,7 +20,7 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 32) {
                 welcomeHeader
                 statsMatrix
@@ -70,10 +70,10 @@ struct HomeView: View {
                 }
             }
             .padding(.horizontal, ArtShelfStyle.contentPadding)
-            .padding(.top, 16)
+            .padding(.top, 40)
             .padding(.bottom, 48)
         }
-        .scrollIndicators(.hidden)
+        .hideScrollIndicators()
         .background(ArtShelfStyle.paper)
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
@@ -204,6 +204,7 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .hideScrollIndicators()
         }
     }
 
@@ -264,6 +265,7 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 6)
             }
+            .hideScrollIndicators()
         }
     }
 

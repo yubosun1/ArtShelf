@@ -233,4 +233,38 @@ extension View {
             )
             .animation(.easeOut(duration: 0.18), value: isHovered)
     }
+
+    /// 彻底抹除所有系统滚动条（垂直与水平），保留原生平滑触控滚动
+    func hideScrollIndicators() -> some View {
+        self
+            .scrollIndicators(.hidden)
+            .background(ScrollBarRemover())
+    }
+}
+
+// MARK: - 彻底隐藏 macOS NSScrollView 滚动条底层桥接
+
+private struct ScrollBarRemover: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            stripScrollbars(from: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            stripScrollbars(from: nsView)
+        }
+    }
+
+    private func stripScrollbars(from view: NSView) {
+        guard let scrollView = view.enclosingScrollView else { return }
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.verticalScroller = nil
+        scrollView.horizontalScroller = nil
+        scrollView.autohidesScrollers = true
+    }
 }

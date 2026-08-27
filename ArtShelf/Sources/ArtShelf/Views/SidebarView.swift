@@ -106,7 +106,7 @@ struct SidebarView: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 12)
             }
-            .scrollIndicators(.hidden)
+            .hideScrollIndicators()
 
             PaperRule()
 

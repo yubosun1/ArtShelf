@@ -280,7 +280,7 @@ struct DetailView: View {
             }
             .padding(.trailing, 8)
         }
-        .scrollIndicators(.hidden)
+        .hideScrollIndicators()
     }
 
     // MARK: - 简介

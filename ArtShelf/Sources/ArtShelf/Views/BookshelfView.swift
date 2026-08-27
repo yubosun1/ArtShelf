@@ -56,12 +56,12 @@ struct BookshelfView: View {
             LibraryFilterBar()
         }
         .padding(.horizontal, ArtShelfStyle.contentPadding)
-        .padding(.top, 14)
+        .padding(.top, 36)
         .padding(.bottom, 16)
     }
 
     private var grid: some View {
-        ScrollView(showsIndicators: false) {
+        ScrollView(.vertical, showsIndicators: false) {
             LazyVGrid(columns: columns, alignment: .leading, spacing: ArtShelfStyle.rowSpacing) {
                 ForEach(filteredItems) { item in
                     libraryCard(item)
@@ -71,7 +71,7 @@ struct BookshelfView: View {
             .padding(.vertical, ArtShelfStyle.contentPadding)
             .animation(.easeOut(duration: 0.2), value: filteredItems.map(\.id))
         }
-        .scrollIndicators(.hidden)
+        .hideScrollIndicators()
     }
 
     @ViewBuilder
