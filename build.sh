@@ -4,11 +4,9 @@ set -e
 echo "🎨 Building ArtShelf..."
 cd "$(dirname "$0")/ArtShelf"
 
-# Command Line Tools can briefly ship a compiler newer than the default SDK.
-# The app targets macOS 14, so prefer the installed compatible SDK when present.
-COMPATIBLE_SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk"
-if [ -d "$COMPATIBLE_SDK" ]; then
-    export SDKROOT="$COMPATIBLE_SDK"
+# 使用系统匹配的 SDK
+if [ -z "$SDKROOT" ]; then
+    export SDKROOT="$(xcrun --show-sdk-path)"
 fi
 
 # 编译 release

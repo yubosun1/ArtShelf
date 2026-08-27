@@ -8,14 +8,15 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
                     SectionLabel(title: "资料库")
                         .padding(.horizontal, 14)
-                        .padding(.top, 6)
-                        .padding(.bottom, 7)
+                        .padding(.top, 14)
+                        .padding(.bottom, 6)
 
                     sidebarRow(
                         title: "全部收藏",
+                        icon: "square.grid.2x2.fill",
                         count: store.items.count,
                         isSelected: appState.selectedCategory == nil && appState.selectedTag == nil
                     ) {
@@ -25,6 +26,7 @@ struct SidebarView: View {
                     ForEach(MediaType.allCases) { type in
                         sidebarRow(
                             title: type.rawValue,
+                            icon: categoryIcon(for: type),
                             count: store.items.filter { $0.type == type }.count,
                             isSelected: appState.selectedCategory == type && appState.selectedTag == nil
                         ) {
@@ -35,8 +37,8 @@ struct SidebarView: View {
                     if !store.allTags.isEmpty {
                         SectionLabel(title: "标签")
                             .padding(.horizontal, 14)
-                            .padding(.top, 20)
-                            .padding(.bottom, 7)
+                            .padding(.top, 22)
+                            .padding(.bottom, 6)
 
                         ForEach(store.allTags, id: \.self) { tag in
                             DraggableTagRow(
@@ -57,27 +59,37 @@ struct SidebarView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 12)
             }
 
             PaperRule()
 
-            // 底部状态栏：书脊上的落款，宋体一级墨色
-            HStack(spacing: 7) {
-                Image(systemName: "books.vertical")
-                    .font(.system(size: 10.5, weight: .medium))
+            // 底部精细状态栏
+            HStack(spacing: 8) {
+                Image(systemName: "books.vertical.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(ArtShelfStyle.accent)
                 Text("ArtShelf")
-                    .font(ArtShelfStyle.serifTitle(11, weight: .medium))
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(ArtShelfStyle.inkSecondary)
                 Spacer()
-                Text("\(store.items.count)")
-                    .font(ArtShelfStyle.serifTitle(11, weight: .medium).monospacedDigit())
+                Text("\(store.items.count) 项")
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(ArtShelfStyle.inkTertiary)
             }
-            .foregroundStyle(ArtShelfStyle.inkTertiary)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
         }
-        .background(ArtShelfStyle.surface)
+        .background(ArtShelfStyle.sidebarBackground)
+    }
+
+    private func categoryIcon(for type: MediaType) -> String {
+        switch type {
+        case .movie: return "film.stack.fill"
+        case .music: return "opticaldisc.fill"
+        case .book:  return "books.vertical.fill"
+        }
     }
 
     private func selectCategory(_ category: MediaType?) {
@@ -89,12 +101,14 @@ struct SidebarView: View {
 
     private func sidebarRow(
         title: String,
+        icon: String,
         count: Int,
         isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
         SidebarRow(
             title: title,
+            icon: icon,
             count: count,
             isSelected: isSelected,
             action: action
@@ -102,10 +116,10 @@ struct SidebarView: View {
     }
 }
 
-/// 目录索引里的一行：纯文字宋体行题（不配图标），选中态 = accentWash 浅底（圆角 4）
-/// + 行首内侧 2pt 朱砂竖条，标题与计数一并转成朱砂。
+/// 现代 macOS 侧栏行：精致图标 + 文字 + 悬浮/选中反馈 + 药丸数字角标
 private struct SidebarRow: View {
     let title: String
+    let icon: String
     let count: Int
     let isSelected: Bool
     let action: () -> Void
@@ -115,45 +129,46 @@ private struct SidebarRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.inkSecondary)
+                    .frame(width: 18)
+
                 Text(title)
-                    .font(ArtShelfStyle.serifTitle(13, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
 
                 Spacer(minLength: 6)
 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 11).monospacedDigit())
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
                         .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.inkTertiary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(isSelected ? ArtShelfStyle.accent.opacity(0.12) : ArtShelfStyle.hoverFill)
+                        )
                 }
             }
             .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.ink)
-            .padding(.horizontal, 9)
-            .frame(height: 29)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
             .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(isSelected ? ArtShelfStyle.accentWash
-                                     : (isHovered ? ArtShelfStyle.hoverFill : .clear))
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isSelected ? ArtShelfStyle.accentWash : (isHovered ? ArtShelfStyle.hoverFill : .clear))
             )
-            .overlay(alignment: .leading) {
-                if isSelected {
-                    // 行首内侧的朱砂竖条——目录当前位的标记
-                    RoundedRectangle(cornerRadius: 1, style: .continuous)
-                        .fill(ArtShelfStyle.accent)
-                        .frame(width: 2, height: 14)
-                }
-            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.1)) { isHovered = hovering }
+            withAnimation(.easeOut(duration: 0.12)) { isHovered = hovering }
         }
     }
 }
 
-/// 可拖拽排序的标签行——不使用 Button（Button 会拦截鼠标按下，导致 draggable 无法启动），
-/// 改用 onTapGesture 处理点击。放置逻辑在行内通过 onDrop 完成。视觉与分类行一致。
+/// 现代可拖拽排序标签行
 private struct DraggableTagRow: View {
     let title: String
     let count: Int
@@ -166,51 +181,59 @@ private struct DraggableTagRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
+            Image(systemName: "number")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.inkTertiary)
+                .frame(width: 18)
+
             Text(title)
-                .font(ArtShelfStyle.serifTitle(13, weight: isSelected ? .semibold : .regular))
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
                 .lineLimit(1)
 
             Spacer(minLength: 6)
 
             if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 11).monospacedDigit())
+                    .font(.system(size: 10.5, weight: .medium).monospacedDigit())
                     .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.inkTertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1.5)
+                    .background(
+                        Capsule()
+                            .fill(isSelected ? ArtShelfStyle.accent.opacity(0.12) : ArtShelfStyle.hoverFill)
+                    )
             }
         }
         .foregroundStyle(isSelected ? ArtShelfStyle.accent : ArtShelfStyle.ink)
-        .padding(.horizontal, 9)
-        .frame(height: 29)
+        .padding(.horizontal, 10)
+        .frame(height: 30)
         .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(isSelected ? ArtShelfStyle.accentWash
                                  : (isDropTarget ? ArtShelfStyle.accentWash
                                                 : (isHovered ? ArtShelfStyle.hoverFill : .clear)))
         )
-        .overlay(alignment: .leading) {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(ArtShelfStyle.accent)
-                    .frame(width: 2, height: 14)
-            }
-        }
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.1)) { isHovered = hovering }
+            withAnimation(.easeOut(duration: 0.12)) { isHovered = hovering }
         }
         .onTapGesture(perform: action)
         .onDrag {
             NSItemProvider(object: title as NSString)
         } preview: {
-            Text(title)
-                .font(ArtShelfStyle.serifTitle(13, weight: .medium))
-                .foregroundStyle(ArtShelfStyle.ink)
-                .padding(.horizontal, 9)
-                .frame(height: 29)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(ArtShelfStyle.well)
-                )
+            HStack(spacing: 6) {
+                Image(systemName: "number")
+                Text(title)
+            }
+            .font(.system(size: 12.5, weight: .medium))
+            .foregroundStyle(ArtShelfStyle.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(ArtShelfStyle.surface)
+                    .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+            )
         }
         .onDrop(of: [.plainText], isTargeted: $isDropTarget) { providers in
             guard let provider = providers.first else { return false }

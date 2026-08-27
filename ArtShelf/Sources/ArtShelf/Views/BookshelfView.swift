@@ -9,7 +9,7 @@ struct BookshelfView: View {
         appState.filteredItems(from: store)
     }
 
-    /// 固定宽度的列——封面宽度一致，书架线才能连成一条。
+    /// 自适应等宽网格列
     private let columns = [
         GridItem(
             .adaptive(minimum: ArtShelfStyle.cardWidth, maximum: ArtShelfStyle.cardWidth),
@@ -40,27 +40,25 @@ struct BookshelfView: View {
 
     // MARK: - 页眉
 
-    /// 编辑式页眉：印章 + 宋体大标题 + 小字副题，右侧是筛选控件簇。
     private var header: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    SealMark(size: 8)
-                    Text(navigationTitle)
-                        .font(ArtShelfStyle.pageTitle)
-                        .foregroundStyle(ArtShelfStyle.ink)
-                }
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(navigationTitle)
+                    .font(ArtShelfStyle.pageTitle)
+                    .foregroundStyle(ArtShelfStyle.ink)
+
                 Text(subtitle)
-                    .font(.system(size: 11))
-                    .tracking(0.5)
-                    .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
+
             Spacer(minLength: 16)
+
             LibraryFilterBar()
         }
         .padding(.horizontal, ArtShelfStyle.contentPadding)
-        .padding(.top, 20)
-        .padding(.bottom, 14)
+        .padding(.top, 22)
+        .padding(.bottom, 16)
     }
 
     private var grid: some View {
@@ -96,10 +94,9 @@ struct BookshelfView: View {
     }
 
     private var navigationTitle: String {
-        appState.selectedTag ?? appState.selectedCategory?.rawValue ?? "收藏"
+        appState.selectedTag ?? appState.selectedCategory?.rawValue ?? "全部收藏"
     }
 
-    /// 副题：共 N 项；有状态/时间筛选时追加说明。
     private var subtitle: String {
         var parts = ["共 \(filteredItems.count) 项"]
         if let status = appState.selectedStatus {
@@ -114,21 +111,33 @@ struct BookshelfView: View {
     // MARK: - 空状态
 
     private var emptyState: some View {
-        VStack(spacing: 14) {
-            SealMark(size: 9)
+        VStack(spacing: 16) {
+            Image(systemName: emptyIconName)
+                .font(.system(size: 42, weight: .light))
+                .foregroundStyle(ArtShelfStyle.accent.opacity(0.8))
+                .padding(.bottom, 4)
+
             Text(emptyTitle)
-                .font(ArtShelfStyle.serifTitle(20))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(ArtShelfStyle.ink)
+
             Text(emptyMessage)
-                .font(ArtShelfStyle.body)
+                .font(.system(size: 13))
                 .foregroundStyle(ArtShelfStyle.inkSecondary)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+
             Button {
                 appState.showingAddSheet = true
             } label: {
                 Label("添加收藏", systemImage: "plus")
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
+            .tint(ArtShelfStyle.accent)
+            .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
@@ -141,15 +150,27 @@ struct BookshelfView: View {
             || appState.selectedStatus != nil
     }
 
+    private var emptyIconName: String {
+        if !appState.searchText.isEmpty { return "magnifyingglass" }
+        if let cat = appState.selectedCategory {
+            switch cat {
+            case .movie: return "film.stack"
+            case .music: return "opticaldisc"
+            case .book:  return "books.vertical"
+            }
+        }
+        return "square.stack.3d.up"
+    }
+
     private var emptyTitle: String {
         if !appState.searchText.isEmpty { return "没有匹配的收藏" }
-        if isFiltering { return "这一格还空着" }
-        return "书架是空的"
+        if isFiltering { return "当前筛选暂无内容" }
+        return "书架还是空的"
     }
 
     private var emptyMessage: String {
-        if !appState.searchText.isEmpty { return "换个关键词，或清除筛选条件。" }
-        if isFiltering { return "切换筛选条件，或添加新的收藏。" }
-        return "添加一部电影、一张专辑，或一本书。"
+        if !appState.searchText.isEmpty { return "请尝试更换搜索关键词，或清除筛选条件。" }
+        if isFiltering { return "切换其他分类，或添加新的媒体收藏。" }
+        return "把你看过的电影、在听的专辑、想读的书，都珍藏在这里。"
     }
 }

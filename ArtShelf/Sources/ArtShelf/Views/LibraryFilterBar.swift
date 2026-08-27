@@ -10,46 +10,42 @@ struct LibraryFilterBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 8) {
             statusMenu
             timeMenu
 
-            ArtShelfStyle.rule
+            Rectangle()
+                .fill(ArtShelfStyle.rule)
                 .frame(width: 1, height: 16)
-                .padding(.horizontal, 3)
+                .padding(.horizontal, 2)
 
             sortMenu
 
-            Spacer(minLength: 8)
-
-            // 始终占位，避免清除按钮出现/消失导致控件栏宽度变化
-            Button {
-                withAnimation(.easeOut(duration: 0.16)) {
-                    appState.clearBrowseFilters()
+            if hasActiveFilter {
+                Button {
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        appState.clearBrowseFilters()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("重置")
+                            .font(.system(size: 11.5, weight: .medium))
+                    }
+                    .foregroundStyle(ArtShelfStyle.inkSecondary)
+                    .padding(.horizontal, 9)
+                    .frame(height: 28)
+                    .background(
+                        Capsule()
+                            .fill(ArtShelfStyle.well)
+                    )
                 }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
-                    Text("清除")
-                        .font(ArtShelfStyle.control)
-                }
-                .foregroundStyle(ArtShelfStyle.inkSecondary)
-                .padding(.horizontal, 9)
-                .frame(height: 26)
-                .wellBackground()
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                .help("清除筛选条件")
             }
-            .buttonStyle(.plain)
-            .opacity(hasActiveFilter ? 1 : 0)
-            .disabled(!hasActiveFilter)
-            .allowsHitTesting(hasActiveFilter)
-            .accessibilityHidden(!hasActiveFilter)
-            .help("清除筛选条件")
         }
-        // 无底、无横向内边距——筛选控件簇直接嵌在页眉右侧，由页眉容器提供留白
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var statusMenu: some View {
@@ -65,15 +61,13 @@ struct LibraryFilterBar: View {
             }
         } label: {
             FilterMenuLabel(
-                icon: appState.selectedStatus?.iconName ?? "circle.dashed",
+                icon: appState.selectedStatus?.iconName ?? "line.3.horizontal.decrease.circle",
                 title: appState.selectedStatus.map { appState.compactStatusLabel(for: $0) } ?? "状态",
                 isActive: appState.selectedStatus != nil,
-                textMinWidth: 40
+                textMinWidth: 38
             )
         }
         .menuStyle(.borderlessButton)
-        // borderlessButton 的 Menu 会用 tint 给 label 上色，盖过内部的 foregroundStyle——
-        // 未激活时把 tint 压回墨色，激活时才落朱砂
         .tint(appState.selectedStatus != nil ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .fixedSize()
         .help("按状态筛选")
@@ -93,7 +87,7 @@ struct LibraryFilterBar: View {
                 icon: appState.selectedTimeFilter == .all ? "clock" : appState.selectedTimeFilter.iconName,
                 title: appState.selectedTimeFilter == .all ? "时间" : appState.selectedTimeFilter.rawValue,
                 isActive: appState.selectedTimeFilter != .all,
-                textMinWidth: 58
+                textMinWidth: 52
             )
         }
         .menuStyle(.borderlessButton)
@@ -139,8 +133,6 @@ private struct FilterMenuLabel: View {
     let icon: String
     let title: String
     let isActive: Bool
-
-    /// 标题区的最小宽度，避免切换选项时文字宽度变化导致整个控件栏抖动
     var textMinWidth: CGFloat = 0
 
     @State private var isHovered = false
@@ -148,28 +140,28 @@ private struct FilterMenuLabel: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
+
             Text(title)
-                .font(ArtShelfStyle.control)
+                .font(.system(size: 12, weight: isActive ? .semibold : .medium))
                 .lineLimit(1)
                 .frame(minWidth: textMinWidth, alignment: .leading)
+
             Image(systemName: "chevron.down")
-                .font(.system(size: 7.5, weight: .bold))
-                .opacity(0.5)
+                .font(.system(size: 7.5, weight: .semibold))
+                .opacity(0.45)
         }
         .foregroundStyle(isActive ? ArtShelfStyle.accent : ArtShelfStyle.ink)
         .padding(.horizontal, 10)
-        .frame(height: 26)
-        // 默认无底——只有文字与图标；悬停给一层淡灰底，选中才落朱砂浅底
-        .background {
-            if isActive {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(ArtShelfStyle.accentWash)
-            } else if isHovered {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(ArtShelfStyle.hoverFill)
-            }
-        }
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isActive ? ArtShelfStyle.accentWash : (isHovered ? ArtShelfStyle.wellHover : ArtShelfStyle.well))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(isActive ? ArtShelfStyle.accent.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) { isHovered = hovering }

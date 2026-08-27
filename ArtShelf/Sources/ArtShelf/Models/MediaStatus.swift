@@ -18,9 +18,9 @@ enum MediaStatus: String, Codable, CaseIterable {
     /// 避免系统蓝/绿在米色背景上显得刺眼。
     var color: Color {
         switch self {
-        case .planned:    return Color(red: 0.58, green: 0.55, blue: 0.49)  // 石灰
-        case .inProgress: return Color(red: 0.85, green: 0.55, blue: 0.18)  // 琥珀
-        case .completed:  return Color(red: 0.40, green: 0.56, blue: 0.38)  // 橄榄
+        case .planned:    return Color(red: 0.54, green: 0.58, blue: 0.66)  // 典雅青灰
+        case .inProgress: return Color(red: 0.92, green: 0.58, blue: 0.16)  // 明朗琥珀
+        case .completed:  return Color(red: 0.24, green: 0.66, blue: 0.44)  // 清爽翡翠
         }
     }
 

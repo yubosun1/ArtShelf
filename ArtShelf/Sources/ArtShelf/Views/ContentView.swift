@@ -22,7 +22,7 @@ struct ContentView: View {
                     }
                 }
         }
-        .toolbarBackground(ArtShelfStyle.paper, for: .windowToolbar)
+
         .searchable(text: $appState.searchText, placement: .toolbar, prompt: "搜索收藏")
         .sheet(isPresented: $appState.showingAddSheet) {
             AddMediaView()

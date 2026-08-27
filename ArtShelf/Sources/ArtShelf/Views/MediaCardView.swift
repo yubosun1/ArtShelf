@@ -9,25 +9,22 @@ struct MediaCardView: View {
     @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             coverWell
-            shelfLine
             caption
         }
         .frame(width: ArtShelfStyle.cardWidth)
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.14)) { isHovered = hovering }
+            withAnimation(.easeOut(duration: 0.16)) { isHovered = hovering }
         }
         .onTapGesture { open() }
         .contextMenu { contextMenuItems }
         .help(item.title)
     }
 
-    // MARK: - 封面
+    // MARK: - 封面展示区
 
-    /// 所有封面共用一个固定高度的"井"，底部对齐落在书架线上。
-    /// 方形专辑因此比海报矮一截，正是实体书架上的样子。
     private var coverWell: some View {
         ZStack(alignment: .topTrailing) {
             CoverImageView(
@@ -37,12 +34,12 @@ struct MediaCardView: View {
                 cornerRadius: ArtShelfStyle.cardRadius
             )
             .frame(width: ArtShelfStyle.cardWidth)
-            .offset(y: isHovered ? -2 : 0)
+            .cardHoverEffect(isHovered: isHovered)
 
             if isHovered {
                 hoverBadge
-                    .offset(y: -2)
-                    .transition(.opacity)
+                    .padding(8)
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
             }
         }
         .frame(
@@ -56,42 +53,35 @@ struct MediaCardView: View {
         Image(systemName: appState.selectedSort == .custom ? "line.3.horizontal" : "arrow.up.right")
             .font(.system(size: 10, weight: .bold))
             .foregroundStyle(ArtShelfStyle.ink)
-            .frame(width: 24, height: 24)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .padding(6)
+            .frame(width: 28, height: 28)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
     }
 
-    /// 托住封面的书脊木沿——受光面到背光面的细渐变，让一排封面像立在木头上
-    private var shelfLine: some View {
-        ShelfLedge()
-            .padding(.top, 5)
-    }
-
-    // MARK: - 文字
+    // MARK: - 文字信息
 
     private var caption: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(item.title)
                 .font(ArtShelfStyle.cardTitle)
                 .foregroundStyle(ArtShelfStyle.ink)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, minHeight: 31, alignment: .topLeading)
+                .lineSpacing(2)
+                .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
 
-            HStack(spacing: 5) {
-                // 3.5pt 小方印，圆角 0.5——像钤在纸上的印章，不再用圆点
-                RoundedRectangle(cornerRadius: 0.5, style: .continuous)
-                    .fill(item.status.color)
-                    .frame(width: 3.5, height: 3.5)
-
-                Text(item.status.label(for: item.type))
+            HStack(spacing: 6) {
+                StatusBadge(status: item.status, type: item.type)
 
                 if let creator = item.creator, !creator.isEmpty {
-                    Text("·")
-                        .foregroundStyle(ArtShelfStyle.inkTertiary)
                     Text(creator)
                         .lineLimit(1)
-                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkSecondary)
                 }
 
                 Spacer(minLength: 2)
@@ -99,13 +89,11 @@ struct MediaCardView: View {
                 if let year = item.year {
                     Text(String(year))
                         .monospacedDigit()
+                        .font(ArtShelfStyle.cardMeta)
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                 }
             }
-            .font(ArtShelfStyle.cardMeta)
-            .foregroundStyle(ArtShelfStyle.inkSecondary)
         }
-        .padding(.top, 8)
     }
 
     // MARK: - 交互

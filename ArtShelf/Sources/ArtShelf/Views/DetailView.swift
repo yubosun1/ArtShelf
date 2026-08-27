@@ -21,22 +21,22 @@ struct DetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(.horizontal, 22)
-                .padding(.top, 18)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 16)
 
             PaperRule()
-                .padding(.top, 14)
 
-            HStack(alignment: .top, spacing: 26) {
+            HStack(alignment: .top, spacing: 28) {
                 leftPanel
-                    .frame(width: 210)
+                    .frame(width: 220)
 
                 rightPanel
             }
-            .padding(22)
+            .padding(24)
         }
         .background(ArtShelfStyle.paper)
-        .frame(minWidth: 700, minHeight: 540)
+        .frame(minWidth: 740, minHeight: 580)
         .onAppear {
             if item.lastViewedDate == nil || !item.viewedToday {
                 item.lastViewedDate = Date()
@@ -50,21 +50,19 @@ struct DetailView: View {
 
     // MARK: - 页眉
 
-    /// 书衣页版式：标题 + 署名行排在纸面最上，右侧仅留「完成」。
-    /// 整体不用 surface 色带，横线之下直接是内容。
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 10) {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
                     if isEditingTitle {
                         TextField("标题", text: $item.title)
-                            .font(ArtShelfStyle.serifTitle(24))
+                            .font(.system(size: 22, weight: .bold))
                             .textFieldStyle(.plain)
                             .lineLimit(1)
                             .onSubmit { isEditingTitle = false }
                     } else {
                         Text(item.title)
-                            .font(ArtShelfStyle.serifTitle(24))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(ArtShelfStyle.ink)
                             .lineLimit(1)
                     }
@@ -73,40 +71,44 @@ struct DetailView: View {
                         isEditingTitle.toggle()
                     } label: {
                         Image(systemName: isEditingTitle ? "checkmark" : "pencil")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(isEditingTitle ? ArtShelfStyle.accent : ArtShelfStyle.inkTertiary)
-                            .frame(width: 20, height: 20)
-                            .contentShape(Rectangle())
+                            .frame(width: 24, height: 24)
+                            .background(ArtShelfStyle.well, in: Circle())
                     }
                     .buttonStyle(.plain)
                     .help(isEditingTitle ? "完成编辑" : "编辑标题")
+
+                    // 类型胶囊
+                    Text(item.type.rawValue)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ArtShelfStyle.inkSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(ArtShelfStyle.well)
+                        )
                 }
 
-                // 署名行：创作人 · 年份 · 类型，全空则不显示
                 if !bylineText.isEmpty {
                     Text(bylineText)
-                        .font(ArtShelfStyle.byline)
+                        .font(.system(size: 12))
                         .foregroundStyle(ArtShelfStyle.inkSecondary)
                         .lineLimit(1)
                 }
             }
 
-            // 类型标签——发丝线描边的小标签，不再用填充胶囊
-            Text(item.type.rawValue)
-                .font(ArtShelfStyle.cardMeta)
-                .foregroundStyle(ArtShelfStyle.inkSecondary)
-                .padding(.horizontal, 9)
-                .frame(height: 20)
-                .overlay(Capsule().strokeBorder(ArtShelfStyle.rule, lineWidth: 1))
-
             Spacer()
 
             Button("完成") { dismiss() }
+                .buttonStyle(.borderedProminent)
+                .tint(ArtShelfStyle.accent)
+                .controlSize(.regular)
                 .keyboardShortcut(.return, modifiers: .command)
         }
     }
 
-    /// 署名行：creator、year、genre 中非空项用「 · 」连接
     private var bylineText: String {
         var parts: [String] = []
         if let creator = item.creator, !creator.isEmpty {
@@ -124,28 +126,29 @@ struct DetailView: View {
     // MARK: - 左侧面板
 
     private var leftPanel: some View {
-        VStack(spacing: 13) {
+        VStack(spacing: 14) {
             CoverImageView(
                 localPath: item.localCoverPath,
                 remoteURL: item.coverURL,
                 aspectRatio: item.type.coverAspectRatio,
-                cornerRadius: ArtShelfStyle.cardRadius
+                cornerRadius: ArtShelfStyle.panelRadius
             )
+            .shadow(color: ArtShelfStyle.coverShadow, radius: 8, y: 3)
 
-            // 封面操作按钮
             coverActionButtons
 
-            VStack(spacing: 3) {
+            // 评分
+            VStack(spacing: 5) {
                 RatingStars(rating: item.rating) { newRating in
                     item.rating = newRating
                 }
-                Text(item.rating > 0 ? "\(item.rating) / 5" : "点击评分")
-                    .font(ArtShelfStyle.cardMeta)
+                Text(item.rating > 0 ? "\(item.rating) / 5 分" : "未评分")
+                    .font(.system(size: 11))
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
 
-            // 打开按钮
+            // 操作主按钮
             VStack(spacing: 8) {
                 if FileService.shared.localFileExists(at: item.localFilePath) {
                     Button {
@@ -155,13 +158,14 @@ struct DetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(ArtShelfStyle.accent)
                 }
 
                 if let webURL = item.webURL, !webURL.isEmpty, !FileService.shared.localFileExists(at: item.localFilePath) {
                     Button {
                         FileService.shared.openURL(webURL)
                     } label: {
-                        Label(item.type == .music ? "在 Apple Music 中打开" : "在线观看", systemImage: "globe")
+                        Label(item.type == .music ? "Apple Music 播放" : "在线观看", systemImage: "arrow.up.right.square")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -179,7 +183,7 @@ struct DetailView: View {
                 }
             }
 
-            // 状态选择
+            // 状态选择器
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(title: "状态")
                 Picker("状态", selection: $item.status) {
@@ -193,31 +197,25 @@ struct DetailView: View {
         }
     }
 
-    // MARK: - 封面操作按钮
-
     private var coverActionButtons: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Button {
-                    if let path = FileService.shared.pickCoverImage() {
-                        item.localCoverPath = path
-                    }
-                } label: {
-                    Label("更换封面", systemImage: "photo")
+            Button {
+                if let path = FileService.shared.pickCoverImage() {
+                    item.localCoverPath = path
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .frame(maxWidth: .infinity)
-                .disabled(isExtractingCover)
+            } label: {
+                Label("更换封面", systemImage: "photo")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(isExtractingCover)
 
-            // 从 EPUB 提取封面
             if item.type == .book,
                item.localFilePath?.hasSuffix(".epub") == true,
                item.localCoverPath == nil {
 
                 if isExtractingCover {
-                    // 提取中：显示进度指示器
                     HStack(spacing: 6) {
                         ProgressView()
                             .controlSize(.small)
@@ -232,16 +230,14 @@ struct DetailView: View {
                         extractEPUBCover()
                     } label: {
                         Label("从 EPUB 提取封面", systemImage: "doc.zipper")
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
     }
-
-    // MARK: - 异步提取 EPUB 封面
 
     private func extractEPUBCover() {
         guard let path = item.localFilePath else { return }
@@ -259,36 +255,28 @@ struct DetailView: View {
 
     // MARK: - 右侧面板
 
-    /// 阅读区在前（简介、我的感想），其后是书目信息与管理区。
     private var rightPanel: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                // 阅读区
+            VStack(alignment: .leading, spacing: 20) {
                 synopsisSection
-
-                // 我的感想
                 notesSection
-
-                // 书目信息（原元数据定义列表）
                 bibliographySection
-
-                // 标签
                 tagsSection
-
-                // 本地文件
                 fileSection
-
-                // 在线链接
                 webURLSection
 
-                // 删除
                 PaperRule()
+                    .padding(.top, 4)
+
                 Button(role: .destructive) {
                     store.delete(item)
                     dismiss()
                 } label: {
                     Label("删除此收藏", systemImage: "trash")
+                        .font(.system(size: 12))
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red.opacity(0.85))
             }
             .padding(.trailing, 8)
         }
@@ -296,31 +284,30 @@ struct DetailView: View {
 
     // MARK: - 简介
 
-    /// 简介始终展示、原地编辑：有值是一段衬线段落，编辑时读起来像书衣文案。
-    /// 无边框编辑——文本直接排在纸上，不垫底色。
     private var synopsisSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(title: "简介")
             ZStack(alignment: .topLeading) {
                 if (item.synopsis ?? "").isEmpty {
-                    Text("补充一段简介……")
-                        .font(ArtShelfStyle.serifBody(13))
+                    Text("添加内容简介……")
+                        .font(.system(size: 13))
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: synopsisBinding)
-                    .font(ArtShelfStyle.serifBody(13.5))
+                    .font(.system(size: 13))
                     .foregroundStyle(ArtShelfStyle.ink)
-                    .lineSpacing(6)
-                    .frame(minHeight: 60)
+                    .lineSpacing(4)
+                    .padding(8)
+                    .frame(minHeight: 64)
                     .scrollContentBackground(.hidden)
             }
+            .wellBackground(radius: 8)
         }
     }
 
-    /// 空内容存为 nil（避免存一串空格），有内容时原样保存
     private var synopsisBinding: Binding<String> {
         Binding(
             get: { item.synopsis ?? "" },
@@ -330,13 +317,12 @@ struct DetailView: View {
 
     // MARK: - 我的感想
 
-    /// 个人笔记同样无边框，直接排在纸上
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(title: "我的感想")
+            SectionLabel(title: "我的感想 / 笔记")
             ZStack(alignment: .topLeading) {
                 if item.notes.isEmpty {
-                    Text("写下你的想法、评价、摘录……")
+                    Text("记录你的评语、读后感或心情……")
                         .font(.system(size: 13))
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                         .padding(.horizontal, 12)
@@ -346,13 +332,15 @@ struct DetailView: View {
                 TextEditor(text: $item.notes)
                     .font(ArtShelfStyle.body)
                     .lineSpacing(4)
-                    .frame(minHeight: 90)
+                    .padding(8)
+                    .frame(minHeight: 88)
                     .scrollContentBackground(.hidden)
             }
+            .wellBackground(radius: 8)
         }
     }
 
-    // MARK: - 书目信息（元数据字段表）
+    // MARK: - 作品详细信息
 
     private struct MetaRow {
         let label: String
@@ -390,28 +378,30 @@ struct DetailView: View {
     }
 
     private var bibliographySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "书目信息")
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(title: "作品信息")
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(metadataRows.enumerated()), id: \.offset) { entry in
                     if entry.offset > 0 {
                         PaperRule()
-                            .padding(.vertical, 5)
+                            .padding(.vertical, 6)
                     }
                     infoRow(label: entry.element.label, value: entry.element.value)
                 }
             }
+            .padding(12)
+            .panelBackground(radius: 8)
         }
     }
 
     private func infoRow(label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
-                .font(ArtShelfStyle.cardMeta)
+                .font(.system(size: 11.5))
                 .foregroundStyle(ArtShelfStyle.inkTertiary)
-                .frame(width: 54, alignment: .leading)
+                .frame(width: 60, alignment: .leading)
             Text(value)
-                .font(ArtShelfStyle.body)
+                .font(.system(size: 12.5))
                 .foregroundStyle(ArtShelfStyle.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -421,28 +411,27 @@ struct DetailView: View {
 
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "标签")
+            SectionLabel(title: "标签分类")
 
             if !item.tags.isEmpty {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 6)], alignment: .leading, spacing: 6) {
                     ForEach(item.tags, id: \.self) { tag in
                         HStack(spacing: 4) {
                             Text(tag)
-                                .font(.system(size: 11))
+                                .font(.system(size: 11.5, weight: .medium))
                             Button {
                                 item.tags.removeAll { $0 == tag }
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 7, weight: .bold))
+                                    .font(.system(size: 8, weight: .bold))
                                     .opacity(0.6)
                             }
                             .buttonStyle(.plain)
                         }
                         .foregroundStyle(ArtShelfStyle.ink)
                         .padding(.horizontal, 8)
-                        .frame(height: 21)
-                        // 描边胶囊，底色留空——印章只落在评分与选中态
-                        .overlay(Capsule().strokeBorder(ArtShelfStyle.rule, lineWidth: 1))
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(ArtShelfStyle.well))
                     }
                 }
             }
@@ -451,9 +440,9 @@ struct DetailView: View {
                 Image(systemName: "tag")
                     .font(.system(size: 11))
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
-                TextField("添加标签后按回车", text: $newTag)
+                TextField("输入新标签后按回车…", text: $newTag)
                     .textFieldStyle(.plain)
-                    .font(ArtShelfStyle.body)
+                    .font(.system(size: 12))
                     .onSubmit {
                         let tag = newTag.trimmingCharacters(in: .whitespaces)
                         if !tag.isEmpty && !item.tags.contains(tag) {
@@ -463,8 +452,8 @@ struct DetailView: View {
                     }
             }
             .padding(.horizontal, 10)
-            .frame(height: 27)
-            .wellBackground()
+            .frame(height: 28)
+            .wellBackground(radius: 7)
         }
     }
 
@@ -472,7 +461,7 @@ struct DetailView: View {
 
     private var fileSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel(title: "本地文件")
+            SectionLabel(title: "本地关联文件")
 
             HStack {
                 if let path = item.localFilePath {
@@ -486,19 +475,19 @@ struct DetailView: View {
                     Button {
                         FileService.shared.openLocalFile(at: path)
                     } label: {
-                        Image(systemName: "play.circle")
+                        Image(systemName: "play.circle.fill")
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(ArtShelfStyle.inkTertiary)
+                    .foregroundStyle(ArtShelfStyle.accent)
                     .help("打开文件")
+
                     Button {
                         item.localFilePath = nil
-                        // 如果移除文件，也清除封面（如果封面是从该文件提取的）
                         if item.localCoverPath?.contains("ArtShelf/covers") == true {
                             item.localCoverPath = nil
                         }
                     } label: {
-                        Image(systemName: "xmark.circle")
+                        Image(systemName: "xmark.circle.fill")
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
@@ -517,7 +506,6 @@ struct DetailView: View {
                         }
                         if let path = FileService.shared.pickFile(allowedTypes: allowedTypes, prompt: "选择\(item.type.rawValue)文件") {
                             item.localFilePath = path
-                            // 自动从 EPUB 异步提取封面
                             if item.type == .book && path.hasSuffix(".epub") {
                                 isExtractingCover = true
                                 Task {
@@ -535,8 +523,11 @@ struct DetailView: View {
                         Label("选择文件", systemImage: "folder")
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             }
+            .padding(10)
+            .wellBackground(radius: 8)
         }
     }
 
@@ -552,25 +543,18 @@ struct DetailView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
                         .padding(.horizontal, 10)
-                        .frame(height: 26)
-                        .wellBackground()
+                        .frame(height: 28)
+                        .wellBackground(radius: 7)
                         .onSubmit { saveWebURL() }
 
-                    Button {
-                        saveWebURL()
-                    } label: {
-                        Text("保存")
-                            .frame(width: 40)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                    Button("保存") { saveWebURL() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(ArtShelfStyle.accent)
+                        .controlSize(.small)
 
-                    Button {
+                    Button("取消") {
                         isEditingWebURL = false
                         webURLDraft = item.webURL ?? ""
-                    } label: {
-                        Text("取消")
-                            .frame(width: 36)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -590,8 +574,9 @@ struct DetailView: View {
                             Image(systemName: "arrow.up.right.square")
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(ArtShelfStyle.inkTertiary)
+                        .foregroundStyle(ArtShelfStyle.accent)
                         .help("打开链接")
+
                         Button {
                             webURLDraft = webURL
                             isEditingWebURL = true
@@ -600,11 +585,12 @@ struct DetailView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
-                        .help("编辑链接（比如搜索到的信息页和在线观看页不是同一个网站）")
+                        .help("编辑链接")
+
                         Button {
                             item.webURL = nil
                         } label: {
-                            Image(systemName: "xmark.circle")
+                            Image(systemName: "xmark.circle.fill")
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
@@ -624,11 +610,12 @@ struct DetailView: View {
                         .controlSize(.small)
                     }
                 }
+                .padding(10)
+                .wellBackground(radius: 8)
             }
         }
     }
 
-    /// 保存编辑后的在线链接
     private func saveWebURL() {
         let trimmed = webURLDraft.trimmingCharacters(in: .whitespaces)
         item.webURL = trimmed.isEmpty ? nil : trimmed

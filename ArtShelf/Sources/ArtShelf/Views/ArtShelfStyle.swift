@@ -1,144 +1,137 @@
 import SwiftUI
 import AppKit
 
-/// ArtShelf 的设计层——书房纸面，编辑排版。
+/// ArtShelf 现代画廊设计系统 (Modern Media Atelier)
 ///
-/// 所有颜色、圆角、间距、字号都在这里定义，视图只引用不自造。
-/// 审美取向：像一页书或画廊目录——标题用宋体，分隔用发丝线，
-/// 不用圆角卡片和彩色胶囊堆砌；朱砂红像印章一样，只在评分、
-/// 选中、关键操作上落一点。
+/// 遵循 Apple macOS 人机交互指南 (HIG)，以“媒体封面即主角”为核心理念：
+/// - 画布采用通透纯净的高级中性基调，衬托电影海报、黑胶专辑与书籍装帧的丰富色彩；
+/// - 采用柔和环境光感（Ambient Shadows）与微浮动反馈（Lift Elevation）；
+/// - 优雅现代的排版，高对比度易读性，原生毛玻璃与精细微描边。
 enum ArtShelfStyle {
 
     // MARK: - 调色板
 
-    /// 窗口画布：象牙纸
+    /// 窗口主画布背景：浅色纯净通透灰白，深色沉浸式深空炭灰
     static let paper = dynamic(
-        light: hex(0xF7F4EC),
-        dark:  hex(0x181715)
+        light: hex(0xF9FAFB),
+        dark:  hex(0x131417)
     )
 
-    /// 抬起一层的表面：侧栏、工具条
+    /// 抬起一层的表面：侧栏底色、卡片、浮动面板
     static let surface = dynamic(
-        light: hex(0xEFEBE1),
-        dark:  hex(0x201F1C)
+        light: hex(0xFFFFFF),
+        dark:  hex(0x1B1C22)
     )
 
-    /// 再抬一层：输入框、填充控件
+    /// 侧栏专属背景（更贴合 macOS 系统侧栏质感）
+    static let sidebarBackground = dynamic(
+        light: hex(0xF4F5F7),
+        dark:  hex(0x17181D)
+    )
+
+    /// 填充控件与内凹槽（搜索框、标签背景、输入框）
     static let well = dynamic(
-        light: hex(0xE7E1D3),
-        dark:  hex(0x2B2925)
+        light: hex(0xEEF1F4),
+        dark:  hex(0x23252D)
     )
 
-    /// 正文墨色
+    /// 控件悬停底色
+    static let wellHover = dynamic(
+        light: hex(0xE4E7EB),
+        dark:  hex(0x2A2D37)
+    )
+
+    /// 一级主文字（高对比度，清晰有力）
     static let ink = dynamic(
-        light: hex(0x221F1B),
-        dark:  hex(0xEAE5D9)
+        light: hex(0x121316),
+        dark:  hex(0xF4F5F7)
     )
 
-    /// 次级文字
+    /// 次级文字（作者、年份、辅助说明）
     static let inkSecondary = dynamic(
-        light: hex(0x221F1B, alpha: 0.62),
-        dark:  hex(0xEAE5D9, alpha: 0.60)
+        light: hex(0x565B67),
+        dark:  hex(0x9CA2B0)
     )
 
-    /// 三级文字：提示、占位、计数
+    /// 三级文字（占位符、计数、微缩提示）
     static let inkTertiary = dynamic(
-        light: hex(0x221F1B, alpha: 0.40),
-        dark:  hex(0xEAE5D9, alpha: 0.38)
+        light: hex(0x8D93A1),
+        dark:  hex(0x636877)
     )
 
-    /// 朱砂红——像印章，少落，落准
+    /// 主强调色：充满艺术活力的高级日落朱砂红（Sunset Terracotta）
     static let accent = dynamic(
-        light: hex(0xA93B27),
-        dark:  hex(0xDC7250)
+        light: hex(0xDE4B30),
+        dark:  hex(0xF06348)
     )
 
-    /// 强调色的浅底，用于选中态背景
+    /// 强调色的浅雾底色（选中态背景、药丸指示器）
     static let accentWash = dynamic(
-        light: hex(0xA93B27, alpha: 0.09),
-        dark:  hex(0xDC7250, alpha: 0.14)
+        light: hex(0xDE4B30, alpha: 0.10),
+        dark:  hex(0xF06348, alpha: 0.18)
     )
 
-    /// 发丝分隔线
+    /// 发丝分隔线（精细低对比度，消解视觉杂乱）
     static let rule = dynamic(
-        light: hex(0x221F1B, alpha: 0.09),
-        dark:  hex(0xEAE5D9, alpha: 0.12)
+        light: hex(0x000000, alpha: 0.07),
+        dark:  hex(0xFFFFFF, alpha: 0.08)
     )
 
-    /// 书架横木：托住每一排封面（ledge 渐变的中间色，单独使用时的兜底色）
-    static let shelf = dynamic(
-        light: hex(0x9C8464, alpha: 0.55),
-        dark:  hex(0x7D6A4F, alpha: 0.55)
-    )
-
-    /// 木架沿的受光面与背光面——ShelfLedge 用它们拉出一点体积感
-    static let shelfHi = dynamic(
-        light: hex(0xC4AA80),
-        dark:  hex(0x8A765A)
-    )
-    static let shelfLo = dynamic(
-        light: hex(0x937D5C),
-        dark:  hex(0x63543F)
-    )
-
-    /// 悬停时的轻微提亮
+    /// 悬停微光
     static let hoverFill = dynamic(
-        light: hex(0x221F1B, alpha: 0.04),
-        dark:  hex(0xEAE5D9, alpha: 0.05)
+        light: hex(0x000000, alpha: 0.04),
+        dark:  hex(0xFFFFFF, alpha: 0.06)
     )
 
-    static let coverShadow = Color.black.opacity(0.12)
+    // MARK: - 阴影与光效
 
-    // MARK: - 尺寸
+    /// 封面静止时的环境柔光阴影
+    static let coverShadow = Color.black.opacity(0.08)
+    
+    /// 卡片悬停提升时的深度阴影
+    static let coverHoverShadow = Color.black.opacity(0.18)
 
-    static let cardWidth: CGFloat = 164
-    /// 封面井的高度 = 最高的封面（2:3 海报）。方形专辑底部对齐，一起落在书架线上。
+    // MARK: - 尺寸与网格
+
+    static let cardWidth: CGFloat = 172
+    /// 封面展示槽高度（基于 2:3 经典海报/书籍长宽比）
     static let coverWellHeight: CGFloat = cardWidth * 1.5
 
-    /// 封面只留一点圆角，像裁切整齐的印刷品
-    static let cardRadius: CGFloat = 3
-    static let controlRadius: CGFloat = 5
-    static let panelRadius: CGFloat = 8
+    /// 现代连续曲率圆角
+    static let cardRadius: CGFloat = 8
+    static let controlRadius: CGFloat = 7
+    static let panelRadius: CGFloat = 12
 
-    static let contentPadding: CGFloat = 30
-    static let gridSpacing: CGFloat = 26
-    static let rowSpacing: CGFloat = 32
+    static let contentPadding: CGFloat = 28
+    static let gridSpacing: CGFloat = 24
+    static let rowSpacing: CGFloat = 30
 
-    // MARK: - 字体
+    // MARK: - 字体层次系统 (Typography)
 
-    /// 标题字：宋体。藏书与画廊目录的人文感主要来自它。
+    /// 页眉大标题：现代有力、排版舒展
+    static let pageTitle = Font.system(size: 26, weight: .bold, design: .default)
+
+    /// 小节栏目标题
     static func serifTitle(_ size: CGFloat = 15, weight: Font.Weight = .semibold) -> Font {
-        serifFont(size: size, weight: weight)
+        .system(size: size, weight: weight)
     }
 
-    /// 页眉大标题：目录页/详情页的章节题
-    static let pageTitle = serifFont(size: 28, weight: .semibold)
+    /// 副标题
+    static let byline = Font.system(size: 13, weight: .regular)
 
-    /// 副题/署名行：紧随大标题的一行小字
-    static let byline = serifFont(size: 13, weight: .regular)
-
-    /// 衬线正文：用于简介等值得慢读的段落
-    static func serifBody(_ size: CGFloat = 13) -> Font {
-        serifFont(size: size, weight: .regular)
+    /// 叙述性正文（简介、感想）
+    static func serifBody(_ size: CGFloat = 13.5) -> Font {
+        .system(size: size, weight: .regular)
     }
 
-    /// 旧接口保留——现在同样返回宋体标题
     static func title(_ size: CGFloat = 15) -> Font {
-        serifTitle(size)
+        .system(size: size, weight: .semibold)
     }
 
-    static let cardTitle = serifFont(size: 13, weight: .medium)
-    static let cardMeta = Font.system(size: 10.5, weight: .regular)
-    static let body = Font.system(size: 12.5)
+    static let cardTitle = Font.system(size: 13, weight: .semibold)
+    static let cardMeta = Font.system(size: 11, weight: .regular)
+    static let body = Font.system(size: 13, weight: .regular)
     static let control = Font.system(size: 12, weight: .medium)
-
-    /// 优先使用系统自带的宋体（Songti SC），缺失时退到系统衬线体
-    private static func serifFont(size: CGFloat, weight: Font.Weight) -> Font {
-        if NSFont(name: "Songti SC", size: size) != nil {
-            return .custom("Songti SC", size: size).weight(weight)
-        }
-        return .system(size: size, weight: weight, design: .serif)
-    }
 
     // MARK: - 动态颜色构造
 
@@ -159,66 +152,56 @@ enum ArtShelfStyle {
     }
 }
 
-// MARK: - 小节标题
+// MARK: - 通用小节标头
 
-/// 目录式的小节题：宋体、加宽字距，像书页上的栏目名
 struct SectionLabel: View {
     let title: String
 
     var body: some View {
-        Text(title.uppercased())
-            .font(ArtShelfStyle.serifTitle(10.5, weight: .medium))
-            .tracking(2)
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(ArtShelfStyle.inkTertiary)
     }
 }
 
-// MARK: - 纸面横线
+// MARK: - 精致发丝线
 
-/// 比 `Divider` 更轻、颜色统一的发丝线。
 struct PaperRule: View {
     var body: some View {
-        ArtShelfStyle.rule
+        Rectangle()
+            .fill(ArtShelfStyle.rule)
             .frame(height: 1)
     }
 }
 
-// MARK: - 朱砂小方印
+// MARK: - 状态胶囊徽标
 
-/// 页眉标题前的一点朱砂，像钤在纸上的印章——全场唯一允许的装饰。
-struct SealMark: View {
-    var size: CGFloat = 7
+struct StatusBadge: View {
+    let status: MediaStatus
+    let type: MediaType
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-            .fill(ArtShelfStyle.accent)
-            .frame(width: size, height: size)
-    }
-}
-
-// MARK: - 书架木沿
-
-/// 托住封面的木架沿：受光面到背光面的细微渐变，下方落一点影子，
-/// 让一排封面看起来像真的立在木头上。
-struct ShelfLedge: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 1, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [ArtShelfStyle.shelfHi, ArtShelfStyle.shelfLo],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(height: 3)
-            .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1.5)
+        HStack(spacing: 4) {
+            Circle()
+                .fill(status.color)
+                .frame(width: 5, height: 5)
+            Text(status.label(for: type))
+                .font(.system(size: 10, weight: .medium))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2.5)
+        .background(
+            Capsule()
+                .fill(status.color.opacity(0.12))
+        )
+        .foregroundStyle(status.color)
     }
 }
 
 // MARK: - 复用修饰符
 
 extension View {
-    /// 填充式控件底（输入框、胶囊按钮）
+    /// 控件微底（输入框、胶囊按钮）
     func wellBackground(radius: CGFloat = ArtShelfStyle.controlRadius) -> some View {
         background(
             RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -226,7 +209,7 @@ extension View {
         )
     }
 
-    /// 面板底：比画布抬起一层，带极细描边
+    /// 面板底：质感浮层表面，带极细微描边
     func panelBackground(radius: CGFloat = ArtShelfStyle.panelRadius) -> some View {
         background(
             RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -236,5 +219,18 @@ extension View {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(ArtShelfStyle.rule, lineWidth: 1)
         )
+    }
+
+    /// 卡片悬停微浮效果
+    func cardHoverEffect(isHovered: Bool) -> some View {
+        self
+            .offset(y: isHovered ? -3 : 0)
+            .shadow(
+                color: isHovered ? ArtShelfStyle.coverHoverShadow : ArtShelfStyle.coverShadow,
+                radius: isHovered ? 12 : 5,
+                x: 0,
+                y: isHovered ? 6 : 2
+            )
+            .animation(.easeOut(duration: 0.18), value: isHovered)
     }
 }

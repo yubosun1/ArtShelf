@@ -18,8 +18,7 @@ struct AddMediaView: View {
     @State private var isFetchingMetadata = false
     @State private var metadataFetchError = false
 
-    /// 搜索结果里封面的固定宽度——高度由宽高比推出，与图片原始尺寸无关。
-    private let resultCoverWidth: CGFloat = 58
+    private let resultCoverWidth: CGFloat = 56
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,8 +38,8 @@ struct AddMediaView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("添加收藏")
-                .font(ArtShelfStyle.serifTitle(20))
+            Text("添加新收藏")
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(ArtShelfStyle.ink)
 
             Spacer()
@@ -49,14 +48,14 @@ struct AddMediaView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
+                    .frame(width: 24, height: 24)
+                    .background(ArtShelfStyle.well, in: Circle())
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.escape, modifiers: [])
             .help("关闭")
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 22)
         .padding(.vertical, 14)
         .background(ArtShelfStyle.surface)
     }
@@ -72,18 +71,18 @@ struct AddMediaView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 210)
+            .frame(width: 200)
             .onChange(of: selectedType) {
                 results = []
                 addedIds = []
             }
 
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
 
-                TextField("搜索\(selectedType.rawValue)…", text: $query)
+                TextField("搜索\(selectedType.rawValue)名称…", text: $query)
                     .textFieldStyle(.plain)
                     .font(ArtShelfStyle.body)
                     .onSubmit { performSearch() }
@@ -102,15 +101,17 @@ struct AddMediaView: View {
                 }
             }
             .padding(.horizontal, 10)
-            .frame(height: 27)
-            .wellBackground()
+            .frame(height: 30)
+            .wellBackground(radius: 7)
 
             Button("搜索") { performSearch() }
                 .buttonStyle(.borderedProminent)
+                .tint(ArtShelfStyle.accent)
+                .controlSize(.regular)
                 .keyboardShortcut(.return, modifiers: [])
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
         .background(ArtShelfStyle.surface)
     }
 
@@ -122,8 +123,8 @@ struct AddMediaView: View {
             centered {
                 ProgressView()
                     .controlSize(.small)
-                Text("正在搜索…")
-                    .font(ArtShelfStyle.serifTitle(15))
+                Text("正在检索公开资料库…")
+                    .font(.system(size: 13))
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
         } else if !results.isEmpty {
@@ -131,10 +132,10 @@ struct AddMediaView: View {
         } else if !query.isEmpty {
             centered {
                 emptyGlyph("magnifyingglass")
-                Text("没有找到结果")
-                    .font(ArtShelfStyle.serifTitle(15))
+                Text("未找到相关\(selectedType.rawValue)")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(ArtShelfStyle.ink)
-                Text("换个说法，或者手动添加。")
+                Text("尝试精简关键词，或在下方手动添加。")
                     .font(ArtShelfStyle.body)
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
@@ -142,9 +143,9 @@ struct AddMediaView: View {
             centered {
                 emptyGlyph(selectedType.systemImage)
                 Text("搜索\(selectedType.rawValue)")
-                    .font(ArtShelfStyle.serifTitle(15))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(ArtShelfStyle.ink)
-                Text("输入名称后按回车。")
+                Text("输入关键词后点击搜索，自动拉取高清封面与元数据。")
                     .font(ArtShelfStyle.body)
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
@@ -152,13 +153,13 @@ struct AddMediaView: View {
     }
 
     private func centered<C: View>(@ViewBuilder _ inner: () -> C) -> some View {
-        VStack(spacing: 7) { inner() }
+        VStack(spacing: 8) { inner() }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func emptyGlyph(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.system(size: 26, weight: .light))
+            .font(.system(size: 32, weight: .light))
             .foregroundStyle(ArtShelfStyle.inkTertiary)
             .padding(.bottom, 4)
     }
@@ -168,13 +169,13 @@ struct AddMediaView: View {
             LazyVStack(spacing: 0) {
                 ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
                     if index > 0 {
-                        PaperRule().padding(.leading, resultCoverWidth + 34)
+                        PaperRule().padding(.leading, resultCoverWidth + 28)
                     }
                     resultRow(result)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 8)
         }
     }
 
@@ -198,16 +199,15 @@ struct AddMediaView: View {
                     showingManualAdd = true
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 10.5))
-                        Text("手动添加")
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 11))
+                        Text("手动录入 / 链接提取")
                     }
                     .font(ArtShelfStyle.control)
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
-                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("搜不到时自己填一条，或粘贴链接自动获取封面")
+                .help("搜不到时可自己输入，或粘贴网页链接提取封面")
 
                 Spacer()
 
@@ -219,8 +219,8 @@ struct AddMediaView: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
         .background(ArtShelfStyle.surface)
     }
 
@@ -237,8 +237,8 @@ struct AddMediaView: View {
                         .textFieldStyle(.plain)
                         .font(ArtShelfStyle.body)
                         .padding(.horizontal, 10)
-                        .frame(height: 26)
-                        .wellBackground()
+                        .frame(height: 28)
+                        .wellBackground(radius: 6)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -250,8 +250,8 @@ struct AddMediaView: View {
                             .textFieldStyle(.plain)
                             .font(ArtShelfStyle.body)
                             .padding(.horizontal, 10)
-                            .frame(height: 26)
-                            .wellBackground()
+                            .frame(height: 28)
+                            .wellBackground(radius: 6)
                             .onSubmit { fetchManualMetadata() }
 
                         Button {
@@ -262,13 +262,14 @@ struct AddMediaView: View {
                                     .controlSize(.small)
                                     .frame(width: 44)
                             } else {
-                                Text("获取")
+                                Text("提取")
                                     .frame(width: 44)
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(ArtShelfStyle.accent)
+                        .controlSize(.small)
                         .disabled(isFetchingMetadata || manualLink.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .help("从链接自动获取标题与封面")
                     }
                 }
 
@@ -277,6 +278,8 @@ struct AddMediaView: View {
                         .font(ArtShelfStyle.cardMeta)
                     Button("添加") { addManual() }
                         .buttonStyle(.borderedProminent)
+                        .tint(ArtShelfStyle.accent)
+                        .controlSize(.small)
                         .disabled(manualTitle.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
 
@@ -290,9 +293,8 @@ struct AddMediaView: View {
                         manualMetadata = nil
                         metadataFetchError = false
                     }
-                    .buttonStyle(.plain)
-                    .font(ArtShelfStyle.control)
-                    .foregroundStyle(ArtShelfStyle.inkSecondary)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             }
 
@@ -303,7 +305,7 @@ struct AddMediaView: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 10))
                         .foregroundStyle(ArtShelfStyle.inkSecondary)
-                    Text("未能从链接获取信息，可手动填写标题后添加。")
+                    Text("未能从链接获取信息，可直接输入标题后添加。")
                         .font(ArtShelfStyle.cardMeta)
                         .foregroundStyle(ArtShelfStyle.inkSecondary)
                 }
@@ -317,7 +319,7 @@ struct AddMediaView: View {
                 localPath: nil,
                 remoteURL: meta.coverURL,
                 aspectRatio: selectedType.coverAspectRatio,
-                cornerRadius: 4
+                cornerRadius: 6
             )
             .frame(width: 44)
             .frame(height: 44 / selectedType.coverAspectRatio, alignment: .top)
@@ -325,7 +327,7 @@ struct AddMediaView: View {
             VStack(alignment: .leading, spacing: 3) {
                 if let title = meta.title {
                     Text(title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(ArtShelfStyle.ink)
                         .lineLimit(1)
                 }
@@ -334,7 +336,6 @@ struct AddMediaView: View {
                         .font(ArtShelfStyle.cardMeta)
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                         .lineLimit(2)
-                        .lineSpacing(1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -344,13 +345,12 @@ struct AddMediaView: View {
                 Button("使用此标题") {
                     manualTitle = title
                 }
-                .buttonStyle(.plain)
-                .font(ArtShelfStyle.control)
-                .foregroundStyle(ArtShelfStyle.accent)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .padding(8)
-        .panelBackground()
+        .panelBackground(radius: 8)
     }
 
     // MARK: - 搜索
@@ -386,7 +386,6 @@ struct AddMediaView: View {
             addedIds.insert(result.id)
         }
 
-        // 异步下载封面到本地缓存
         if let coverURL = result.coverURL {
             let itemId = item.id
             Task {
@@ -415,7 +414,6 @@ struct AddMediaView: View {
 
         store.add(item)
 
-        // 异步下载封面到本地缓存
         if let coverURL = item.coverURL {
             let itemId = item.id
             Task {
@@ -437,7 +435,6 @@ struct AddMediaView: View {
         showingManualAdd = false
     }
 
-    /// 从链接自动获取标题 / 封面 / 简介
     private func fetchManualMetadata() {
         let link = manualLink.trimmingCharacters(in: .whitespaces)
         guard !link.isEmpty else { return }
@@ -460,10 +457,7 @@ struct AddMediaView: View {
     }
 }
 
-// MARK: - 工具
-
 private extension String {
-    /// 空字符串转 nil，方便写入可选字段
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
@@ -482,20 +476,18 @@ private struct ResultRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            // 固定宽度 + 固定高度的封面槽：任何尺寸的远程图都只在槽内裁切，
-            // 不会把这一行撑高去盖住相邻内容。
             CoverImageView(
                 localPath: nil,
                 remoteURL: result.coverURL,
                 aspectRatio: result.type.coverAspectRatio,
-                cornerRadius: 4
+                cornerRadius: 6
             )
             .frame(width: coverWidth)
             .frame(height: coverWidth / result.type.coverAspectRatio, alignment: .top)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(result.title)
-                    .font(ArtShelfStyle.serifTitle(13, weight: .medium))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(ArtShelfStyle.ink)
                     .lineLimit(2)
 
@@ -523,10 +515,10 @@ private struct ResultRow: View {
 
             addButton
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 10)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(isHovered && !isAdded ? ArtShelfStyle.hoverFill : .clear)
         )
         .contentShape(Rectangle())
@@ -543,13 +535,15 @@ private struct ResultRow: View {
                     .font(.system(size: 9, weight: .bold))
                 Text("已添加")
             }
-            .font(ArtShelfStyle.control)
+            .font(.system(size: 12, weight: .medium))
             .foregroundStyle(ArtShelfStyle.inkTertiary)
-            .frame(width: 68, height: 25)
+            .frame(width: 72, height: 26)
         } else {
             Button("添加", action: onAdd)
                 .buttonStyle(.borderedProminent)
-                .frame(width: 68)
+                .tint(ArtShelfStyle.accent)
+                .controlSize(.small)
+                .frame(width: 72)
         }
     }
 }
