@@ -7,10 +7,6 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 避让 macOS 原生红绿灯按钮
-            Color.clear
-                .frame(height: 28)
-
             // 侧栏顶部内嵌搜索框
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
@@ -36,10 +32,10 @@ struct SidebarView: View {
             .frame(height: 28)
             .wellBackground(radius: 7)
             .padding(.horizontal, 10)
-            .padding(.top, 4)
+            .padding(.top, 10)
             .padding(.bottom, 6)
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
                         SectionLabel(title: "资料库")
@@ -110,6 +106,7 @@ struct SidebarView: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 12)
             }
+            .scrollIndicators(.hidden)
 
             PaperRule()
 

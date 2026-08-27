@@ -10,11 +10,14 @@ struct ContentView: View {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 184, ideal: 204, max: 240)
         } detail: {
-            if appState.isHome {
-                HomeView()
-            } else {
-                BookshelfView()
+            Group {
+                if appState.isHome {
+                    HomeView()
+                } else {
+                    BookshelfView()
+                }
             }
+            .ignoresSafeArea(.all, edges: .top)
         }
         .sheet(isPresented: $appState.showingAddSheet) {
             AddMediaView()

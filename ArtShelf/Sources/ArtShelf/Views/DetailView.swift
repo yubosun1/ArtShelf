@@ -256,7 +256,7 @@ struct DetailView: View {
     // MARK: - 右侧面板
 
     private var rightPanel: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 20) {
                 synopsisSection
                 notesSection
@@ -280,6 +280,7 @@ struct DetailView: View {
             }
             .padding(.trailing, 8)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 简介

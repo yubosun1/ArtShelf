@@ -20,7 +20,7 @@ struct HomeView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 32) {
                 welcomeHeader
                 statsMatrix
@@ -70,9 +70,10 @@ struct HomeView: View {
                 }
             }
             .padding(.horizontal, ArtShelfStyle.contentPadding)
-            .padding(.top, 24)
+            .padding(.top, 16)
             .padding(.bottom, 48)
         }
+        .scrollIndicators(.hidden)
         .background(ArtShelfStyle.paper)
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
