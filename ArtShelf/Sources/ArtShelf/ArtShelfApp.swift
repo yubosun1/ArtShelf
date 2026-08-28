@@ -6,6 +6,16 @@ struct ArtShelfApp: App {
     @StateObject private var store = DataStore()
     @StateObject private var appState = AppState()
 
+    init() {
+        // 自动自愈：清理此前因 NSScroller 异常 swizzle 导致系统持久化的错误 NSSplitView 隐藏状态
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys {
+            if key.contains("NSSplitView") {
+                defaults.removeObject(forKey: key)
+            }
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

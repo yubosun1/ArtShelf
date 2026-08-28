@@ -35,3 +35,9 @@ if [ -f "Resources/Info.plist" ]; then
 fi
 
 echo "📦 App bundle updated at: $(pwd)/$APP_DIR"
+
+if [ -d "/Applications/ArtShelf.app" ]; then
+    rm -rf "/Applications/ArtShelf.app"
+    cp -R "$APP_DIR" "/Applications/"
+    echo "🚀 Also synchronized to /Applications/ArtShelf.app"
+fi
