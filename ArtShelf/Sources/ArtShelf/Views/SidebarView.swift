@@ -110,21 +110,36 @@ struct SidebarView: View {
 
             PaperRule()
 
-            // 底部精细状态栏
+            // 底部精细状态与设置工具栏
             HStack(spacing: 8) {
-                Image(systemName: "books.vertical.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(ArtShelfStyle.accent)
-                Text("ArtShelf")
-                    .font(.system(size: 11.5, weight: .semibold))
+                Button {
+                    appState.showingSettingsSheet = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 11.5, weight: .medium))
+                        Text("设置")
+                            .font(.system(size: 11.5, weight: .medium))
+                    }
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(ArtShelfStyle.hoverFill.opacity(0.8))
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("偏好设置 (⌘,)")
+
                 Spacer()
+
                 Text("\(store.items.count) 项")
                     .font(.system(size: 11).monospacedDigit())
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
         .background(ArtShelfStyle.sidebarBackground)
     }

@@ -65,6 +65,9 @@ final class AppState: ObservableObject {
     /// 是否显示添加窗口
     @Published var showingAddSheet: Bool = false
 
+    /// 是否显示偏好设置窗口
+    @Published var showingSettingsSheet: Bool = false
+
     /// 搜索关键词
     @Published var searchText: String = ""
 

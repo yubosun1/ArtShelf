@@ -4,6 +4,7 @@ struct ContentView: View {
 
     @EnvironmentObject var store: DataStore
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
@@ -26,6 +27,10 @@ struct ContentView: View {
                 .environmentObject(appState)
                 .frame(minWidth: 800, minHeight: 560)
         }
+        .sheet(isPresented: $appState.showingSettingsSheet) {
+            SettingsView()
+        }
+        .preferredColorScheme(themeManager.appearance.colorScheme)
         .background(ScrollbarSanitizer())
     }
 }

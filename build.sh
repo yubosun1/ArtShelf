@@ -29,6 +29,11 @@ if [ -f "ArtShelf.icns" ]; then
     cp ArtShelf.icns "$APP_DIR/Contents/Resources/ArtShelf.icns"
 fi
 
+# 复制多款应用图标资源（供动态切换）
+if [ -d "Resources/Icons" ]; then
+    cp -R "Resources/Icons" "$APP_DIR/Contents/Resources/"
+fi
+
 # 复制稳定保存的应用清单
 if [ -f "Resources/Info.plist" ]; then
     cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
