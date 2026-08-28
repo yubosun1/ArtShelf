@@ -234,9 +234,96 @@ extension View {
             .animation(.easeOut(duration: 0.18), value: isHovered)
     }
 
-    /// 隐藏滚动条，保留原生平滑触控滚动
+    /// 隐藏滚动条与滚动槽，保留原生平滑触控滚动
     func hideScrollIndicators() -> some View {
         self
             .scrollIndicators(.hidden)
+            .background(ScrollbarSanitizer())
+    }
+}
+
+// MARK: - 安全无侵入滚动条隐形器
+
+/// 专为 macOS 滚动视图定制的无侵入零宽度透明滚动条子类
+final class InvisibleScroller: NSScroller {
+    override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat {
+        0
+    }
+
+    override class var isCompatibleWithOverlayScrollers: Bool {
+        true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {}
+    override func drawKnob() {}
+    override func drawKnobSlot(in slotRect: NSRect, highlight: Bool) {}
+
+    override var isHidden: Bool {
+        get { true }
+        set {}
+    }
+
+    override var alphaValue: CGFloat {
+        get { 0 }
+        set {}
+    }
+}
+
+struct ScrollbarSanitizer: NSViewRepresentable {
+    func makeNSView(context: Context) -> SanitizerView {
+        SanitizerView()
+    }
+
+    func updateNSView(_ nsView: SanitizerView, context: Context) {
+        nsView.sanitize()
+    }
+}
+
+final class SanitizerView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        sanitize()
+    }
+
+    override func layout() {
+        super.layout()
+        sanitize()
+    }
+
+    func sanitize() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let enclosing = self.enclosingScrollView {
+                self.sanitizeScrollView(enclosing)
+            }
+            if let root = self.window?.contentView {
+                self.walkAndSanitize(root)
+            }
+        }
+    }
+
+    private func walkAndSanitize(_ view: NSView) {
+        if let sv = view as? NSScrollView {
+            sanitizeScrollView(sv)
+        }
+        for sub in view.subviews {
+            walkAndSanitize(sub)
+        }
+    }
+
+    private func sanitizeScrollView(_ sv: NSScrollView) {
+        sv.scrollerStyle = .overlay
+        sv.autohidesScrollers = true
+        if !(sv.verticalScroller is InvisibleScroller) {
+            sv.verticalScroller = InvisibleScroller()
+        }
+        if !(sv.horizontalScroller is InvisibleScroller) {
+            sv.horizontalScroller = InvisibleScroller()
+        }
+        sv.verticalScroller?.isHidden = true
+        sv.horizontalScroller?.isHidden = true
+        sv.verticalScroller?.alphaValue = 0
+        sv.horizontalScroller?.alphaValue = 0
+        sv.scrollerInsets = NSEdgeInsetsZero
     }
 }
