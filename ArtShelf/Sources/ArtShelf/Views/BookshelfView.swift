@@ -60,9 +60,17 @@ struct BookshelfView: View {
         .padding(.bottom, 16)
     }
 
+    private var isMusicCategory: Bool {
+        appState.selectedCategory == .music
+    }
+
+    private var rowSpacing: CGFloat {
+        isMusicCategory ? 24 : ArtShelfStyle.rowSpacing
+    }
+
     private var grid: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: ArtShelfStyle.rowSpacing) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: rowSpacing) {
                 ForEach(filteredItems) { item in
                     libraryCard(item)
                 }
@@ -98,7 +106,17 @@ struct BookshelfView: View {
     }
 
     private var subtitle: String {
-        var parts = ["共 \(filteredItems.count) 项"]
+        let countUnit: String
+        if appState.selectedCategory == .music {
+            countUnit = "张唱片"
+        } else if appState.selectedCategory == .movie {
+            countUnit = "部影视"
+        } else if appState.selectedCategory == .book {
+            countUnit = "本书籍"
+        } else {
+            countUnit = "项"
+        }
+        var parts = ["共 \(filteredItems.count) \(countUnit)"]
         if let status = appState.selectedStatus {
             parts.append(appState.statusLabel(for: status))
         }

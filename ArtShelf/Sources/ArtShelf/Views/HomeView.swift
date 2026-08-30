@@ -396,14 +396,24 @@ private struct InProgressCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                CoverImageView(
-                    localPath: item.localCoverPath,
-                    remoteURL: item.coverURL,
-                    aspectRatio: item.type.coverAspectRatio,
-                    cornerRadius: 6
-                )
-                .frame(width: 48)
-                .frame(height: 48 / item.type.coverAspectRatio)
+                if item.type == .music {
+                    MusicCoverView(
+                        localPath: item.localCoverPath,
+                        remoteURL: item.coverURL,
+                        size: 48,
+                        cornerRadius: 5,
+                        isHovered: isHovered
+                    )
+                } else {
+                    CoverImageView(
+                        localPath: item.localCoverPath,
+                        remoteURL: item.coverURL,
+                        aspectRatio: item.type.coverAspectRatio,
+                        cornerRadius: 6
+                    )
+                    .frame(width: 48)
+                    .frame(height: 48 / item.type.coverAspectRatio)
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
@@ -458,15 +468,26 @@ private struct HomeShelfCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack(alignment: .topTrailing) {
-                    CoverImageView(
-                        localPath: item.localCoverPath,
-                        remoteURL: item.coverURL,
-                        aspectRatio: aspectRatio,
-                        cornerRadius: ArtShelfStyle.cardRadius
-                    )
-                    .frame(width: width)
-                    .frame(height: width / aspectRatio)
-                    .cardHoverEffect(isHovered: isHovered)
+                    if item.type == .music {
+                        MusicCoverView(
+                            localPath: item.localCoverPath,
+                            remoteURL: item.coverURL,
+                            size: width,
+                            cornerRadius: ArtShelfStyle.cardRadius,
+                            isHovered: isHovered
+                        )
+                        .cardHoverEffect(isHovered: isHovered)
+                    } else {
+                        CoverImageView(
+                            localPath: item.localCoverPath,
+                            remoteURL: item.coverURL,
+                            aspectRatio: aspectRatio,
+                            cornerRadius: ArtShelfStyle.cardRadius
+                        )
+                        .frame(width: width)
+                        .frame(height: width / aspectRatio)
+                        .cardHoverEffect(isHovered: isHovered)
+                    }
 
                     if isHovered {
                         Image(systemName: "arrow.up.right")

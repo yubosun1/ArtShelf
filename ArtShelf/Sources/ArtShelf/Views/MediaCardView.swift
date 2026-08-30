@@ -25,16 +25,31 @@ struct MediaCardView: View {
 
     // MARK: - 封面展示区
 
+    private var coverHeight: CGFloat {
+        item.type == .music ? ArtShelfStyle.musicCoverHeight : ArtShelfStyle.coverWellHeight
+    }
+
     private var coverWell: some View {
         ZStack(alignment: .topTrailing) {
-            CoverImageView(
-                localPath: item.localCoverPath,
-                remoteURL: item.coverURL,
-                aspectRatio: item.type.coverAspectRatio,
-                cornerRadius: ArtShelfStyle.cardRadius
-            )
-            .frame(width: ArtShelfStyle.cardWidth)
-            .cardHoverEffect(isHovered: isHovered)
+            if item.type == .music {
+                MusicCoverView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    size: ArtShelfStyle.cardWidth,
+                    cornerRadius: ArtShelfStyle.cardRadius,
+                    isHovered: isHovered
+                )
+                .cardHoverEffect(isHovered: isHovered)
+            } else {
+                CoverImageView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    aspectRatio: item.type.coverAspectRatio,
+                    cornerRadius: ArtShelfStyle.cardRadius
+                )
+                .frame(width: ArtShelfStyle.cardWidth)
+                .cardHoverEffect(isHovered: isHovered)
+            }
 
             if isHovered {
                 hoverBadge
@@ -44,7 +59,7 @@ struct MediaCardView: View {
         }
         .frame(
             width: ArtShelfStyle.cardWidth,
-            height: ArtShelfStyle.coverWellHeight,
+            height: coverHeight,
             alignment: .bottom
         )
     }

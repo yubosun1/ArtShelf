@@ -127,13 +127,23 @@ struct DetailView: View {
 
     private var leftPanel: some View {
         VStack(spacing: 14) {
-            CoverImageView(
-                localPath: item.localCoverPath,
-                remoteURL: item.coverURL,
-                aspectRatio: item.type.coverAspectRatio,
-                cornerRadius: ArtShelfStyle.panelRadius
-            )
-            .shadow(color: ArtShelfStyle.coverShadow, radius: 8, y: 3)
+            if item.type == .music {
+                MusicCoverView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    size: 220,
+                    cornerRadius: ArtShelfStyle.panelRadius,
+                    alwaysExtended: true
+                )
+            } else {
+                CoverImageView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    aspectRatio: item.type.coverAspectRatio,
+                    cornerRadius: ArtShelfStyle.panelRadius
+                )
+                .shadow(color: ArtShelfStyle.coverShadow, radius: 8, y: 3)
+            }
 
             coverActionButtons
 

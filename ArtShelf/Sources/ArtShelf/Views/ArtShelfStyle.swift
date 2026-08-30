@@ -96,6 +96,8 @@ enum ArtShelfStyle {
     static let cardWidth: CGFloat = 172
     /// 封面展示槽高度（基于 2:3 经典海报/书籍长宽比）
     static let coverWellHeight: CGFloat = cardWidth * 1.5
+    /// 音乐唱片展示槽高度（基于 1:1 方形专辑比例）
+    static let musicCoverHeight: CGFloat = cardWidth
 
     /// 现代连续曲率圆角
     static let cardRadius: CGFloat = 8
