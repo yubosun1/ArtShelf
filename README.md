@@ -6,10 +6,11 @@
 
 <p align="center">
   <strong>一个为 macOS 精心打造的原生个人审美与全品类媒体策展空间</strong><br>
-  电影胶片的光影、黑胶唱片的律动、案头书卷的墨香，以及心动的偶像小卡与精选壁纸——把你的整个精神世界，安置在一个温润雅致的书架上。
+  电影胶片的光影、黑胶唱片的律动、案头书卷的墨香——把你的整个精神世界，安置在一个温润雅致的书架上。
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="Version 2.0.0">
   <img src="https://img.shields.io/badge/macOS-14.0%2B%20Sonoma%20%7C%20Sequoia-333333?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-5.9%20%7C%20SwiftUI%20Native-FA7343?logo=swift" alt="Swift 5.9">
   <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-blue" alt="Architecture">
@@ -52,7 +53,7 @@
   基于「棱镜之架与灵感光谱 (The Prism Easel)」设计理念，支持在设置面板中直接点击更换，即刻生效：
   - ⚪ **象牙画廊纯白**（默认推荐）：纯净画廊底色，水晶棱镜折射全彩光谱；
   - 🔵 **晴空微晶淡蓝**：清晨微风晴空浅蓝，清爽灵动呼吸感；
-  - 🌸 **珍珠粉晕暖白**：柔美珍珠粉金微晕，与偶像追星、治愈生活心动呼应；
+  - 🌸 **珍珠粉晕暖白**：柔美珍珠粉金微晕，与温柔浪漫、治愈生活心动呼应；
   - ⚫ **深空暮夜棱镜**：经典黑曜石深邃背景，沉稳克制极客范。
 
 ### 🔍 智能元数据与多源合流补全
