@@ -13,6 +13,7 @@ DerivedData/
 *.app
 *.dmg
 *.pkg
+*.zip
 
 # 临时文件
 *.tmp
