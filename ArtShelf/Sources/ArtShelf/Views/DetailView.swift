@@ -7,7 +7,11 @@ struct DetailView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
-    @State private var item: MediaItem
+    /// 详情页只持有条目 id，展示与编辑都直接读写 store——多窗口打开同一条目时编辑互相同步
+    private let itemID: UUID
+    /// 进入详情页时的快照——仅用于条目已被删除后的兜底展示，避免崩溃
+    private let fallbackItem: MediaItem
+
     @State private var newTag: String = ""
     @State private var isExtractingCover = false
     @State private var isEditingTitle = false
@@ -15,7 +19,28 @@ struct DetailView: View {
     @State private var webURLDraft = ""
 
     init(item: MediaItem) {
-        _item = State(initialValue: item)
+        itemID = item.id
+        fallbackItem = item
+    }
+
+    /// 当前条目——始终从 store 按 id 读取最新数据；条目删除后回退到进入时的快照兜底
+    private var item: MediaItem {
+        store.item(for: itemID) ?? fallbackItem
+    }
+
+    /// 读取 store 中的最新条目，应用修改后回写（不再把本窗口的过期快照整体覆盖回去，避免多窗口互相吞掉修改）
+    private func updateItem(_ mutate: (inout MediaItem) -> Void) {
+        guard var current = store.item(for: itemID) else { return }
+        mutate(&current)
+        store.update(current)
+    }
+
+    /// 文本/选择类控件的直通绑定：读走 store 最新值，写立即回写 store（触发 0.5 秒防抖落盘，可接受）
+    private func fieldBinding<V>(_ keyPath: WritableKeyPath<MediaItem, V>) -> Binding<V> {
+        Binding(
+            get: { self.item[keyPath: keyPath] },
+            set: { newValue in self.updateItem { $0[keyPath: keyPath] = newValue } }
+        )
     }
 
     var body: some View {
@@ -39,12 +64,12 @@ struct DetailView: View {
         .frame(minWidth: 740, minHeight: 580)
         .onAppear {
             if item.lastViewedDate == nil || !item.viewedToday {
-                item.lastViewedDate = Date()
-                store.update(item)
+                updateItem { $0.lastViewedDate = Date() }
             }
         }
-        .onChange(of: item) { _, newItem in
-            store.update(newItem)
+        // 条目在其他窗口被删除时自动关闭详情页，避免继续编辑已失效的数据
+        .onChange(of: store.item(for: itemID) != nil) { _, exists in
+            if !exists { dismiss() }
         }
     }
 
@@ -55,7 +80,7 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     if isEditingTitle {
-                        TextField("标题", text: $item.title)
+                        TextField("标题", text: fieldBinding(\.title))
                             .font(.system(size: 22, weight: .bold))
                             .textFieldStyle(.plain)
                             .lineLimit(1)
@@ -135,14 +160,23 @@ struct DetailView: View {
                     cornerRadius: ArtShelfStyle.panelRadius,
                     alwaysExtended: true
                 )
-            } else {
-                CoverImageView(
+            } else if item.type == .movie {
+                MovieCoverView(
                     localPath: item.localCoverPath,
                     remoteURL: item.coverURL,
-                    aspectRatio: item.type.coverAspectRatio,
-                    cornerRadius: ArtShelfStyle.panelRadius
+                    size: 220,
+                    cornerRadius: ArtShelfStyle.panelRadius,
+                    alwaysExtended: true
                 )
-                .shadow(color: ArtShelfStyle.coverShadow, radius: 8, y: 3)
+            } else {
+                BookCoverView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    size: 220,
+                    cornerRadius: ArtShelfStyle.panelRadius,
+                    // 书籍封面静置展示，不再常驻"翻开"态（电影/音乐保持原样）
+                    alwaysExtended: false
+                )
             }
 
             coverActionButtons
@@ -150,7 +184,7 @@ struct DetailView: View {
             // 评分
             VStack(spacing: 5) {
                 RatingStars(rating: item.rating) { newRating in
-                    item.rating = newRating
+                    updateItem { $0.rating = newRating }
                 }
                 Text(item.rating > 0 ? "\(item.rating) / 5 分" : "未评分")
                     .font(.system(size: 11))
@@ -175,8 +209,11 @@ struct DetailView: View {
                     Button {
                         FileService.shared.openURL(webURL)
                     } label: {
-                        Label(item.type == .music ? "Apple Music 播放" : "在线观看", systemImage: "arrow.up.right.square")
-                            .frame(maxWidth: .infinity)
+                        Label(
+                            item.type == .music ? "Apple Music 播放" : (item.type == .book ? "在线阅读" : "在线观看"),
+                            systemImage: item.type == .book ? "book.pages" : "arrow.up.right.square"
+                        )
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                 }
@@ -196,7 +233,7 @@ struct DetailView: View {
             // 状态选择器
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(title: "状态")
-                Picker("状态", selection: $item.status) {
+                Picker("状态", selection: fieldBinding(\.status)) {
                     ForEach(MediaStatus.allCases, id: \.self) { status in
                         Text(status.label(for: item.type)).tag(status)
                     }
@@ -211,7 +248,7 @@ struct DetailView: View {
         VStack(spacing: 6) {
             Button {
                 if let path = FileService.shared.pickCoverImage() {
-                    item.localCoverPath = path
+                    updateItem { $0.localCoverPath = path }
                 }
             } label: {
                 Label("更换封面", systemImage: "photo")
@@ -237,7 +274,7 @@ struct DetailView: View {
                     .padding(.vertical, 4)
                 } else {
                     Button {
-                        extractEPUBCover()
+                        if let path = item.localFilePath { extractEPUBCover(from: path) }
                     } label: {
                         Label("从 EPUB 提取封面", systemImage: "doc.zipper")
                             .frame(maxWidth: .infinity)
@@ -249,14 +286,14 @@ struct DetailView: View {
         }
     }
 
-    private func extractEPUBCover() {
-        guard let path = item.localFilePath else { return }
+    /// 从 EPUB 文件异步提取封面并写回 store——"从 EPUB 提取封面"按钮与"选择文件"后两处共用
+    private func extractEPUBCover(from path: String) {
         isExtractingCover = true
         Task {
             let coverPath = await EPUBService.shared.extractCoverAsync(from: path)
             await MainActor.run {
                 if let coverPath {
-                    item.localCoverPath = coverPath
+                    updateItem { $0.localCoverPath = coverPath }
                 }
                 isExtractingCover = false
             }
@@ -290,7 +327,6 @@ struct DetailView: View {
             }
             .padding(.trailing, 8)
         }
-        .hideScrollIndicators()
     }
 
     // MARK: - 简介
@@ -322,7 +358,9 @@ struct DetailView: View {
     private var synopsisBinding: Binding<String> {
         Binding(
             get: { item.synopsis ?? "" },
-            set: { item.synopsis = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+            set: { newValue in
+                updateItem { $0.synopsis = newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : newValue }
+            }
         )
     }
 
@@ -340,7 +378,7 @@ struct DetailView: View {
                         .padding(.vertical, 10)
                         .allowsHitTesting(false)
                 }
-                TextEditor(text: $item.notes)
+                TextEditor(text: fieldBinding(\.notes))
                     .font(ArtShelfStyle.body)
                     .lineSpacing(4)
                     .padding(8)
@@ -370,7 +408,10 @@ struct DetailView: View {
             rows.append(MetaRow(label: "专辑", value: albumName))
         }
         if let year = item.year {
-            rows.append(MetaRow(label: "年份", value: String(year)))
+            rows.append(MetaRow(
+                label: item.type == .book ? "出版年份" : "年份",
+                value: String(year)
+            ))
         }
         if let genre = item.genre, !genre.isEmpty {
             rows.append(MetaRow(label: "类型", value: genre))
@@ -431,7 +472,7 @@ struct DetailView: View {
                             Text(tag)
                                 .font(.system(size: 11.5, weight: .medium))
                             Button {
-                                item.tags.removeAll { $0 == tag }
+                                updateItem { current in current.tags.removeAll { $0 == tag } }
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 8, weight: .bold))
@@ -457,7 +498,7 @@ struct DetailView: View {
                     .onSubmit {
                         let tag = newTag.trimmingCharacters(in: .whitespaces)
                         if !tag.isEmpty && !item.tags.contains(tag) {
-                            item.tags.append(tag)
+                            updateItem { $0.tags.append(tag) }
                         }
                         newTag = ""
                     }
@@ -493,9 +534,16 @@ struct DetailView: View {
                     .help("打开文件")
 
                     Button {
-                        item.localFilePath = nil
-                        if item.localCoverPath?.contains("ArtShelf/covers") == true {
-                            item.localCoverPath = nil
+                        updateItem { current in
+                            current.localFilePath = nil
+                            // 仅清除封面缓存目录内的封面；用标准化路径前缀比较，避免误判用户目录下的同名路径片段
+                            if let coverPath = current.localCoverPath {
+                                let cover = URL(fileURLWithPath: coverPath).standardizedFileURL.path
+                                let coversDir = MediaItem.coversDirectory.standardizedFileURL.path + "/"
+                                if cover.hasPrefix(coversDir) {
+                                    current.localCoverPath = nil
+                                }
+                            }
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -516,18 +564,9 @@ struct DetailView: View {
                         case .book:  allowedTypes = ["pdf", "epub", "txt", "mobi", "azw3", "azw", "doc", "docx"]
                         }
                         if let path = FileService.shared.pickFile(allowedTypes: allowedTypes, prompt: "选择\(item.type.rawValue)文件") {
-                            item.localFilePath = path
+                            updateItem { $0.localFilePath = path }
                             if item.type == .book && path.hasSuffix(".epub") {
-                                isExtractingCover = true
-                                Task {
-                                    let coverPath = await EPUBService.shared.extractCoverAsync(from: path)
-                                    await MainActor.run {
-                                        if let coverPath {
-                                            item.localCoverPath = coverPath
-                                        }
-                                        isExtractingCover = false
-                                    }
-                                }
+                                extractEPUBCover(from: path)
                             }
                         }
                     } label: {
@@ -599,7 +638,7 @@ struct DetailView: View {
                         .help("编辑链接")
 
                         Button {
-                            item.webURL = nil
+                            updateItem { $0.webURL = nil }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                         }
@@ -629,7 +668,7 @@ struct DetailView: View {
 
     private func saveWebURL() {
         let trimmed = webURLDraft.trimmingCharacters(in: .whitespaces)
-        item.webURL = trimmed.isEmpty ? nil : trimmed
+        updateItem { $0.webURL = trimmed.isEmpty ? nil : trimmed }
         isEditingWebURL = false
     }
 }

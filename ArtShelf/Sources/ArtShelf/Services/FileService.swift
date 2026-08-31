@@ -1,11 +1,16 @@
 import AppKit
 import Foundation
 import UniformTypeIdentifiers
+import os
 
 /// 文件 / 链接打开服务
 final class FileService {
 
     static let shared = FileService()
+
+    /// 日志（subsystem 统一为 "ArtShelf"，category 为类名）
+    private static let logger = Logger(subsystem: "ArtShelf", category: "FileService")
+
     private init() {}
 
     // MARK: - 打开本地文件
@@ -15,7 +20,7 @@ final class FileService {
     func openLocalFile(at path: String) -> Bool {
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: path) else {
-            print("⚠️ 文件不存在: \(path)")
+            Self.logger.error("文件不存在: \(path, privacy: .public)")
             return false
         }
         return NSWorkspace.shared.open(url)
@@ -88,7 +93,7 @@ final class FileService {
             openURL(appleMusic)
             return
         }
-        print("⚠️ 没有可打开的文件或链接")
+        Self.logger.error("没有可打开的文件或链接")
     }
 
     /// 判断本地文件是否存在

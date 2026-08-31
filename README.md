@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.1-blue" alt="Version 2.0.1">
+  <img src="https://img.shields.io/badge/version-2.0.2-blue" alt="Version 2.0.2">
   <img src="https://img.shields.io/badge/macOS-14.0%2B%20Sonoma%20%7C%20Sequoia-333333?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-5.9%20%7C%20SwiftUI%20Native-FA7343?logo=swift" alt="Swift 5.9">
   <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-blue" alt="Architecture">
@@ -30,14 +30,14 @@
 
 ## ✨ 核心特性
 
-### 🏛️ 现代画廊主页 (Artisan Atelier Home)
-- **艺术策展数据矩阵**：直观汇总影视、音乐、书籍的收藏总量，在看、在听、在读的实时品味进度一目了然。
-- **正在品味 (In Progress) 焦点条**：将当前正在阅读或观赏的藏品置于视觉中心，随时继续体验。
-- **三大专属媒体陈列架**：
-  - **影视精选 (2:3)**：大画幅电影海报微距缩放与状态标识；
-  - **黑胶唱片 (1:1)**：方正黑胶封面比例与光盘微纹理质感；
-  - **案头藏书 (2:3)**：典雅精装书衣设计与优雅书卷排版；
-  - 每条分类展架均支持水平流畅滑动，并附带“查看全部 ›”一键直达分类书架。
+### 🏛️ 现代画廊主页与三大专属实体拟物封面 (Artisan Atelier Covers)
+- **艺术策展数据矩阵**：直观汇总影视、音乐、书籍的收藏总量（部 / 张 / 本），在看、在听、在读的实时品味进度一目了然。
+- **正在品味 (In Progress) 焦点条**：将当前正在阅读、观赏或收听的藏品置于视觉中心，自适应各类型专属拟物封面。
+- **三大专属拟物装帧封面组件**：
+  - 🎬 **影视典藏 (2:3 · `MovieCoverView`)**：经典 2:3 胶片海报覆以影院级透光亚克力微光泽，海报后方探出 35mm 典藏级物理胶片底片（对称片孔、微缩画格原画底片与柯达胶卷工业边码），悬停时轻盈滑出并伴随微角度偏转；
+  - 🎵 **黑胶唱片 (1:1 · `MusicCoverView`)**：严格 1:1 方形硬纸板封套配以书脊折痕压痕，封套内探出高精度矢量黑胶唱片（同心音轨、径向双光锥反射与中央艺术标），悬停时滑出并优雅旋转；
+  - 📖 **案头藏书 (2:3 · `BookCoverView`)**：仿真实体精装硬皮书壳、书脊圆脊与铰链压槽（Spine Hinge Crease），右侧展露层叠象牙色纸张书口切口（Fore-Edge Deckle Pages）与垂挂的高级编织丝绸书签飘带，悬停时呈现 3D 微掀起与飘带轻摇动效；
+  - 每条分类展架均支持水平流畅滑动，并附带量身定制的“查看全部 N 部/张/本 ›”一键直达。
 
 ### 🎨 东方意蕴与现代排版美学
 - **现代编辑美学**：宋体标题 + 象牙纸底（Ivory Paper）+ 发丝细线，克莱因靛蓝（Klein Indigo）艺术强调色与朱砂红印点睛。

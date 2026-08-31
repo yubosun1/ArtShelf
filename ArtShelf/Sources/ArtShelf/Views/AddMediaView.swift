@@ -18,6 +18,14 @@ struct AddMediaView: View {
     @State private var isFetchingMetadata = false
     @State private var metadataFetchError = false
 
+    /// 在途搜索任务与递增序号：新搜索/切换类型时取消旧任务，
+    /// 回写前再比对序号兜底，防止晚返回的旧请求把结果写进错误的标签页
+    @State private var searchTask: Task<Void, Never>?
+    @State private var searchSequence = 0
+    /// 链接元数据提取任务与序号（与搜索同款的竞态防护）
+    @State private var metadataTask: Task<Void, Never>?
+    @State private var metadataSequence = 0
+
     private let resultCoverWidth: CGFloat = 56
 
     var body: some View {
@@ -73,6 +81,10 @@ struct AddMediaView: View {
             .labelsHidden()
             .frame(width: 200)
             .onChange(of: selectedType) {
+                // 切换类型：取消在途搜索并作废其回写，避免旧类型结果落入新标签页
+                searchTask?.cancel()
+                searchSequence += 1
+                isSearching = false
                 results = []
                 addedIds = []
             }
@@ -82,10 +94,11 @@ struct AddMediaView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(ArtShelfStyle.inkTertiary)
 
+                // 不在此处挂 onSubmit：Return 统一由右侧“搜索”按钮的
+                // .keyboardShortcut(.return) 触发，避免一次回车发出两次请求
                 TextField("搜索\(selectedType.rawValue)名称…", text: $query)
                     .textFieldStyle(.plain)
                     .font(ArtShelfStyle.body)
-                    .onSubmit { performSearch() }
 
                 if !query.isEmpty {
                     Button {
@@ -357,12 +370,26 @@ struct AddMediaView: View {
 
     private func performSearch() {
         let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { results = []; return }
 
+        // 取消上一次仍在途的搜索，并递增序号使其回写失效（取消 + 序号双保险）
+        searchTask?.cancel()
+        searchSequence += 1
+        let sequence = searchSequence
+
+        guard !q.isEmpty else {
+            results = []
+            isSearching = false
+            return
+        }
+
+        // 快照当前类型，避免等待期间用户切换标签导致结果错位
+        let type = selectedType
         isSearching = true
-        Task {
-            let r = await MetadataService.shared.search(query: q, type: selectedType)
+        searchTask = Task {
+            let r = await MetadataService.shared.search(query: q, type: type)
             await MainActor.run {
+                // 只接受最新一次搜索的回写，晚返回的旧请求直接丢弃
+                guard sequence == searchSequence, !Task.isCancelled else { return }
                 results = r
                 isSearching = false
             }
@@ -375,6 +402,7 @@ struct AddMediaView: View {
         var item = MediaItem(title: result.title, type: result.type)
         item.creator = result.creator
         item.year = result.year
+        item.genre = result.genre
         item.synopsis = result.synopsis
         item.coverURL = result.coverURL
         item.webURL = result.webURL
@@ -439,11 +467,17 @@ struct AddMediaView: View {
         let link = manualLink.trimmingCharacters(in: .whitespaces)
         guard !link.isEmpty else { return }
 
+        // 取消上一次提取并递增序号，旧请求晚返回时直接丢弃
+        metadataTask?.cancel()
+        metadataSequence += 1
+        let sequence = metadataSequence
+
         isFetchingMetadata = true
         metadataFetchError = false
-        Task {
+        metadataTask = Task {
             let meta = await LinkMetadataService.shared.fetch(from: link)
             await MainActor.run {
+                guard sequence == metadataSequence, !Task.isCancelled else { return }
                 isFetchingMetadata = false
                 if let meta {
                     manualMetadata = meta

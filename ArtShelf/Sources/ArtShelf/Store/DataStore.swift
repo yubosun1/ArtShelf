@@ -1,4 +1,5 @@
 import Foundation
+import os
 import SwiftUI
 
 /// 磁盘存储的完整数据——包含收藏条目与标签自定义顺序
@@ -23,6 +24,9 @@ final class DataStore: ObservableObject {
 
     private var saveTimer: DispatchWorkItem?
 
+    /// 统一日志出口
+    private static let logger = Logger(subsystem: "ArtShelf", category: "DataStore")
+
     init() {
         load()
     }
@@ -43,10 +47,27 @@ final class DataStore: ObservableObject {
                 items = legacy
                 tagOrder = []
             } else {
-                print("⚠️ 数据格式无法识别")
+                // 两种格式都无法解析：先备份原始文件再启动空库，避免后续覆盖写丢失数据
+                backupCorruptFile(at: url)
             }
         } catch {
-            print("⚠️ 加载数据失败: \(error)")
+            Self.logger.error("读取数据文件失败: \(error, privacy: .public)")
+            backupCorruptFile(at: url)
+        }
+    }
+
+    /// 将无法解析的数据文件原样复制为 `library.json.corrupt-<yyyyMMdd-HHmmss>`，防止空库覆盖写导致原始数据丢失
+    private func backupCorruptFile(at url: URL) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let backupURL = url.deletingLastPathComponent()
+            .appendingPathComponent("library.json.corrupt-\(formatter.string(from: Date()))")
+        do {
+            try FileManager.default.copyItem(at: url, to: backupURL)
+            Self.logger.warning("数据文件无法解析，已备份到 \(backupURL.path, privacy: .public)")
+        } catch {
+            Self.logger.error("备份损坏数据失败: \(error, privacy: .public)")
         }
     }
 
@@ -67,8 +88,13 @@ final class DataStore: ObservableObject {
             let url = MediaItem.dataFile
             try data.write(to: url, options: .atomic)
         } catch {
-            print("⚠️ 保存数据失败: \(error)")
+            Self.logger.error("保存数据失败: \(error, privacy: .public)")
         }
+    }
+
+    /// 立即同步保存——应用退出前调用（willTerminateNotification 触发），保证最后的修改落盘
+    func flush() {
+        saveNow()
     }
 
     // MARK: - CRUD
@@ -87,15 +113,13 @@ final class DataStore: ObservableObject {
     }
 
     func delete(_ item: MediaItem) {
-        // 清理本地封面文件
-        if let path = item.localCoverPath {
+        // 仅删除应用自管封面目录内的缓存文件；
+        // 用户自选的图片（如 ~/Pictures）只解除引用，不删文件
+        if let path = item.localCoverPath,
+           URL(fileURLWithPath: path).standardizedFileURL.path.hasPrefix(MediaItem.coversDirectory.standardizedFileURL.path + "/") {
             try? FileManager.default.removeItem(atPath: path)
         }
         items.removeAll { $0.id == item.id }
-    }
-
-    func delete(id: UUID) {
-        items.removeAll { $0.id == id }
     }
 
     func item(for id: UUID) -> MediaItem? {
@@ -186,7 +210,7 @@ final class DataStore: ObservableObject {
             try data.write(to: path)
             return path.path
         } catch {
-            print("⚠️ 下载封面失败: \(error)")
+            Self.logger.error("下载封面失败: \(error, privacy: .public)")
             return nil
         }
     }

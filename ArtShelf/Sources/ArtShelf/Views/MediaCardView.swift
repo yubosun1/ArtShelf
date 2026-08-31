@@ -40,14 +40,23 @@ struct MediaCardView: View {
                     isHovered: isHovered
                 )
                 .cardHoverEffect(isHovered: isHovered)
-            } else {
-                CoverImageView(
+            } else if item.type == .movie {
+                MovieCoverView(
                     localPath: item.localCoverPath,
                     remoteURL: item.coverURL,
-                    aspectRatio: item.type.coverAspectRatio,
-                    cornerRadius: ArtShelfStyle.cardRadius
+                    size: ArtShelfStyle.cardWidth,
+                    cornerRadius: ArtShelfStyle.cardRadius,
+                    isHovered: isHovered
                 )
-                .frame(width: ArtShelfStyle.cardWidth)
+                .cardHoverEffect(isHovered: isHovered)
+            } else {
+                BookCoverView(
+                    localPath: item.localCoverPath,
+                    remoteURL: item.coverURL,
+                    size: ArtShelfStyle.cardWidth,
+                    cornerRadius: ArtShelfStyle.cardRadius,
+                    isHovered: isHovered
+                )
                 .cardHoverEffect(isHovered: isHovered)
             }
 
@@ -97,6 +106,14 @@ struct MediaCardView: View {
                         .lineLimit(1)
                         .font(ArtShelfStyle.cardMeta)
                         .foregroundStyle(ArtShelfStyle.inkSecondary)
+                        .layoutPriority(1)  // 空间不足时优先保住创作者，流派先截断
+                }
+
+                if let genre = item.genre, !genre.isEmpty {
+                    Text(genre)
+                        .lineLimit(1)
+                        .font(ArtShelfStyle.cardMeta)
+                        .foregroundStyle(ArtShelfStyle.inkTertiary)
                 }
 
                 Spacer(minLength: 2)

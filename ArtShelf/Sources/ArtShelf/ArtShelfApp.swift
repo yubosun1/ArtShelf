@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @main
 struct ArtShelfApp: App {
@@ -6,22 +7,14 @@ struct ArtShelfApp: App {
     @StateObject private var store = DataStore()
     @StateObject private var appState = AppState()
     @ObservedObject private var themeManager = ThemeManager.shared
-
-    init() {
-        // 自动自愈：清理此前因 NSScroller 异常 swizzle 导致系统持久化的错误 NSSplitView 隐藏状态
-        let defaults = UserDefaults.standard
-        for key in defaults.dictionaryRepresentation().keys {
-            if key.contains("NSSplitView") {
-                defaults.removeObject(forKey: key)
-            }
-        }
-    }
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(appState)
+                .onAppear { appDelegate.store = store }
                 .tint(ArtShelfStyle.accent)
                 .frame(minWidth: 980, minHeight: 640)
         }
@@ -45,8 +38,21 @@ struct ArtShelfApp: App {
         }
 
         Settings {
-            SettingsView()
+            // 系统偏好设置窗口里 @Environment(\.dismiss) 无效，隐藏无反应的关闭按钮
+            SettingsView(showsDismissButton: false)
                 .preferredColorScheme(themeManager.appearance.colorScheme)
         }
+    }
+}
+
+/// 应用代理——负责退出前的数据兜底保存
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    /// 弱引用主窗口使用的 DataStore，主窗口出现时由 ArtShelfApp 注入
+    weak var store: DataStore?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // 退出前同步落盘，避免防抖窗口内退出丢失最后一次修改
+        store?.flush()
     }
 }

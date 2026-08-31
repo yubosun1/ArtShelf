@@ -113,23 +113,6 @@ enum ArtShelfStyle {
     /// 页眉大标题：现代有力、排版舒展
     static let pageTitle = Font.system(size: 26, weight: .bold, design: .default)
 
-    /// 小节栏目标题
-    static func serifTitle(_ size: CGFloat = 15, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight)
-    }
-
-    /// 副标题
-    static let byline = Font.system(size: 13, weight: .regular)
-
-    /// 叙述性正文（简介、感想）
-    static func serifBody(_ size: CGFloat = 13.5) -> Font {
-        .system(size: size, weight: .regular)
-    }
-
-    static func title(_ size: CGFloat = 15) -> Font {
-        .system(size: size, weight: .semibold)
-    }
-
     static let cardTitle = Font.system(size: 13, weight: .semibold)
     static let cardMeta = Font.system(size: 11, weight: .regular)
     static let body = Font.system(size: 13, weight: .regular)
@@ -223,109 +206,16 @@ extension View {
         )
     }
 
-    /// 卡片悬停微浮效果
+    /// 卡片悬停微浮效果（所有类型卡片共用的外层轻浮起；书籍的翻页动效由 BookCoverView 自行管理，避免动画节奏打架）
     func cardHoverEffect(isHovered: Bool) -> some View {
         self
-            .offset(y: isHovered ? -3 : 0)
+            .offset(y: isHovered ? -2 : 0)
             .shadow(
                 color: isHovered ? ArtShelfStyle.coverHoverShadow : ArtShelfStyle.coverShadow,
-                radius: isHovered ? 12 : 5,
+                radius: isHovered ? 6 : 3,
                 x: 0,
-                y: isHovered ? 6 : 2
+                y: isHovered ? 3 : 1
             )
-            .animation(.easeOut(duration: 0.18), value: isHovered)
-    }
-
-    /// 隐藏滚动条与滚动槽，保留原生平滑触控滚动
-    func hideScrollIndicators() -> some View {
-        self
-            .scrollIndicators(.hidden)
-            .background(ScrollbarSanitizer())
-    }
-}
-
-// MARK: - 安全无侵入滚动条隐形器
-
-/// 专为 macOS 滚动视图定制的无侵入零宽度透明滚动条子类
-final class InvisibleScroller: NSScroller {
-    override class func scrollerWidth(for controlSize: NSControl.ControlSize, scrollerStyle: NSScroller.Style) -> CGFloat {
-        0
-    }
-
-    override class var isCompatibleWithOverlayScrollers: Bool {
-        true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {}
-    override func drawKnob() {}
-    override func drawKnobSlot(in slotRect: NSRect, highlight: Bool) {}
-
-    override var isHidden: Bool {
-        get { true }
-        set {}
-    }
-
-    override var alphaValue: CGFloat {
-        get { 0 }
-        set {}
-    }
-}
-
-struct ScrollbarSanitizer: NSViewRepresentable {
-    func makeNSView(context: Context) -> SanitizerView {
-        SanitizerView()
-    }
-
-    func updateNSView(_ nsView: SanitizerView, context: Context) {
-        nsView.sanitize()
-    }
-}
-
-final class SanitizerView: NSView {
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        sanitize()
-    }
-
-    override func layout() {
-        super.layout()
-        sanitize()
-    }
-
-    func sanitize() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if let enclosing = self.enclosingScrollView {
-                self.sanitizeScrollView(enclosing)
-            }
-            if let root = self.window?.contentView {
-                self.walkAndSanitize(root)
-            }
-        }
-    }
-
-    private func walkAndSanitize(_ view: NSView) {
-        if let sv = view as? NSScrollView {
-            sanitizeScrollView(sv)
-        }
-        for sub in view.subviews {
-            walkAndSanitize(sub)
-        }
-    }
-
-    private func sanitizeScrollView(_ sv: NSScrollView) {
-        sv.scrollerStyle = .overlay
-        sv.autohidesScrollers = true
-        if !(sv.verticalScroller is InvisibleScroller) {
-            sv.verticalScroller = InvisibleScroller()
-        }
-        if !(sv.horizontalScroller is InvisibleScroller) {
-            sv.horizontalScroller = InvisibleScroller()
-        }
-        sv.verticalScroller?.isHidden = true
-        sv.horizontalScroller?.isHidden = true
-        sv.verticalScroller?.alphaValue = 0
-        sv.horizontalScroller?.alphaValue = 0
-        sv.scrollerInsets = NSEdgeInsetsZero
+            .animation(.easeOut(duration: 0.16), value: isHovered)
     }
 }

@@ -37,6 +37,12 @@ struct MusicCoverView: View {
         alwaysExtended ? 0.82 : 0.88
     }
 
+    /// 中心标微缩封面解码像素上限（标签直径约 discDiameter*0.36 ≈ 62pt，@2x≈124，256 足够）
+    private static let labelPixelSize = 256
+
+    /// 后台解码完成后的中心标微缩封面（nil 表示未加载完成，仅显示标签底色）
+    @State private var labelImage: NSImage?
+
     /// 封套本体尺寸
     private var sleeveSize: CGFloat {
         size * sleeveRatio
@@ -90,6 +96,20 @@ struct MusicCoverView: View {
     // MARK: - 方形黑胶封套
 
     private var vinylJacket: some View {
+        Group {
+            if alwaysExtended {
+                jacketBase
+                    // 详情页单张展示：保留封套阴影，把玩感更完整
+                    .shadow(color: ArtShelfStyle.coverShadow, radius: 2, x: -1, y: 2)
+            } else {
+                // 网格模式：省掉这层阴影——封面图自带阴影 + 外层 cardHoverEffect 已兜底，
+                // 少一次滚动时逐帧重合成的模糊
+                jacketBase
+            }
+        }
+    }
+
+    private var jacketBase: some View {
         ZStack(alignment: .leading) {
             // 封面图片基底
             CoverImageView(
@@ -134,7 +154,6 @@ struct MusicCoverView: View {
             .allowsHitTesting(false)
         }
         .frame(width: sleeveSize, height: sleeveSize)
-        .shadow(color: ArtShelfStyle.coverShadow, radius: 4, x: -1, y: 2)
     }
 
     // MARK: - 真实黑胶唱片碟片 (Vinyl Disc)
@@ -197,15 +216,20 @@ struct MusicCoverView: View {
                 .shadow(color: .black.opacity(0.6), radius: 1, x: 0, y: 0.5)
         }
         .frame(width: discDiameter, height: discDiameter)
-        .shadow(color: Color.black.opacity(0.32), radius: 6, x: 3, y: 3)
+        // 碟身内置阴影减半（卡片级阴影由外层 cardHoverEffect 兜底）
+        .shadow(color: Color.black.opacity(0.32), radius: 3, x: 1.5, y: 1.5)
+        // 整体光栅化为位图：渐变、音轨圆环与 blendMode 只合成一次，
+        // 悬停滑出 / 旋转动画退化为 GPU transform，不再逐帧重绘矢量
+        .drawingGroup()
     }
 
     // MARK: - 同心音轨
 
     private var grooveRings: some View {
         ZStack {
-            // 多层同心音轨模拟真实压胶盘微细纹理
-            ForEach([0.88, 0.82, 0.76, 0.70, 0.64, 0.58, 0.52], id: \.self) { ratio in
+            // 同心音轨纹理——每组由 7 条减为 3 条（共 14 → 6 个描边圆），
+            // 配合碟身 drawingGroup 光栅化，视觉密度不变而渲染成本大降
+            ForEach([0.88, 0.72, 0.56], id: \.self) { ratio in
                 Circle()
                     .strokeBorder(
                         Color.white.opacity(0.06),
@@ -214,7 +238,7 @@ struct MusicCoverView: View {
                     .frame(width: discDiameter * ratio, height: discDiameter * ratio)
             }
 
-            ForEach([0.85, 0.79, 0.73, 0.67, 0.61, 0.55, 0.48], id: \.self) { ratio in
+            ForEach([0.85, 0.69, 0.53], id: \.self) { ratio in
                 Circle()
                     .strokeBorder(
                         Color.black.opacity(0.45),
@@ -245,14 +269,18 @@ struct MusicCoverView: View {
                     )
                 )
 
-            // 如果有封面图，中心标内部柔和显示微缩封面
-            if let localPath, let nsImage = NSImage(contentsOfFile: localPath) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: labelSize * 0.78, height: labelSize * 0.78)
-                    .clipShape(Circle())
-                    .opacity(0.85)
+            // 如果有封面图，中心标内部柔和显示微缩封面。
+            // 与 CoverImageView 同模式：body 只做零成本的缓存直查，
+            // 未命中先显示标签底（黑胶中心本来就有中性底色），由 .task 后台解码回填——
+            // 绝不在滚动的主线程求值路径里同步解码
+            if let localPath {
+                if let cached = ImageCache.shared.cachedImage(atPath: localPath, maxPixelSize: Self.labelPixelSize) {
+                    // 1. 缓存命中：零成本直接展示（与封面视图同源缓存，滚动几轮后通常已命中）
+                    labelArtwork(cached, labelSize: labelSize)
+                } else if let image = labelImage {
+                    // 2. 本视图此前异步加载好的结果
+                    labelArtwork(image, labelSize: labelSize)
+                }
             } else if let remoteURL, let url = URL(string: remoteURL) {
                 AsyncImage(url: url) { phase in
                     if case .success(let image) = phase {
@@ -275,5 +303,37 @@ struct MusicCoverView: View {
                 .strokeBorder(Color.black.opacity(0.25), lineWidth: 1)
         }
         .frame(width: labelSize, height: labelSize)
+        .task(id: localPath) {
+            await loadLabelImage()
+        }
+    }
+
+    /// 中心标微缩封面：裁成圆形、半透明叠加在标签底上
+    private func labelArtwork(_ image: NSImage, labelSize: CGFloat) -> some View {
+        Image(nsImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: labelSize * 0.78, height: labelSize * 0.78)
+            .clipShape(Circle())
+            .opacity(0.85)
+    }
+
+    /// 后台缩小解码中心标微缩封面并回填。
+    /// 回填前比对路径防 cell 复用错图——与 CoverImageView 同模式，
+    /// 解码走 ImageCache 有界并发队列，同路径+尺寸的请求自动合并。
+    @MainActor
+    private func loadLabelImage() async {
+        guard let localPath else {
+            labelImage = nil
+            return
+        }
+        // 路径变化时先清掉旧图，避免复用期间短暂显示上一张图
+        labelImage = nil
+
+        let image = await ImageCache.shared.imageAsync(atPath: localPath, maxPixelSize: Self.labelPixelSize)
+
+        // 回填前校验当前路径未变（防 cell 复用错图）
+        guard self.localPath == localPath else { return }
+        labelImage = image
     }
 }

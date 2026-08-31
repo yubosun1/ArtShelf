@@ -1,10 +1,15 @@
 import Foundation
+import os
 
 /// EPUB 封面提取服务
 /// 使用 Swift 原生字符串匹配，避免 NSRegularExpression 在后台线程抛出 Obj-C 异常
 final class EPUBService: @unchecked Sendable {
 
     static let shared = EPUBService()
+
+    /// 日志（subsystem 统一为 "ArtShelf"，category 为类名）
+    private static let logger = Logger(subsystem: "ArtShelf", category: "EPUBService")
+
     private init() {}
 
     // MARK: - 异步提取（主线程调用）
@@ -18,23 +23,36 @@ final class EPUBService: @unchecked Sendable {
     // MARK: - 同步提取（后台线程调用）
 
     func extractCover(from epubPath: String) -> String? {
-        guard FileManager.default.fileExists(atPath: epubPath) else { return nil }
+        guard FileManager.default.fileExists(atPath: epubPath) else {
+            Self.logger.error("EPUB 文件不存在: \(epubPath, privacy: .public)")
+            return nil
+        }
 
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArtShelfEPUB_\(UUID().uuidString)")
 
         guard unzip(at: epubPath, to: tempDir) else {
+            Self.logger.error("EPUB 解压失败: \(epubPath, privacy: .public)")
             try? FileManager.default.removeItem(at: tempDir)
             return nil
         }
         defer { try? FileManager.default.removeItem(at: tempDir) }
 
-        guard let coverRelativePath = findCoverImagePath(in: tempDir) else { return nil }
+        guard let coverRelativePath = findCoverImagePath(in: tempDir) else {
+            Self.logger.error("未能在 EPUB 中定位封面图: \(epubPath, privacy: .public)")
+            return nil
+        }
 
         let coverURL = tempDir.appendingPathComponent(coverRelativePath)
-        guard FileManager.default.fileExists(atPath: coverURL.path) else { return nil }
+        guard FileManager.default.fileExists(atPath: coverURL.path) else {
+            Self.logger.debug("EPUB 封面文件缺失: \(coverURL.path, privacy: .public)")
+            return nil
+        }
 
-        guard let imageData = try? Data(contentsOf: coverURL) else { return nil }
+        guard let imageData = try? Data(contentsOf: coverURL) else {
+            Self.logger.error("读取 EPUB 封面数据失败: \(coverURL.path, privacy: .public)")
+            return nil
+        }
 
         let ext = coverURL.pathExtension.isEmpty ? "jpg" : coverURL.pathExtension
         let coverFile = MediaItem.coversDirectory
@@ -43,6 +61,7 @@ final class EPUBService: @unchecked Sendable {
             try imageData.write(to: coverFile)
             return coverFile.path
         } catch {
+            Self.logger.error("保存 EPUB 封面失败: \(error, privacy: .public)")
             return nil
         }
     }

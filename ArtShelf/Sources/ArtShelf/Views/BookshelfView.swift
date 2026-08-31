@@ -79,7 +79,6 @@ struct BookshelfView: View {
             .padding(.vertical, ArtShelfStyle.contentPadding)
             .animation(.easeOut(duration: 0.2), value: filteredItems.map(\.id))
         }
-        .hideScrollIndicators()
     }
 
     @ViewBuilder

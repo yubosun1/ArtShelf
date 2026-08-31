@@ -11,55 +11,76 @@ struct HomeView: View {
     @EnvironmentObject var store: DataStore
     @EnvironmentObject var appState: AppState
 
-    private var movies: [MediaItem] { store.items.filter { $0.type == .movie } }
-    private var music: [MediaItem] { store.items.filter { $0.type == .music } }
-    private var books: [MediaItem] { store.items.filter { $0.type == .book } }
+    /// 主页馆藏分桶结果：单次遍历按媒体类型与“进行中”状态分组，避免多处独立 filter 重复扫描全量数据
+    private struct HomeBuckets {
+        var movies: [MediaItem] = []
+        var music: [MediaItem] = []
+        var books: [MediaItem] = []
+        var inProgress: [MediaItem] = []
 
-    private var inProgressItems: [MediaItem] {
-        store.items.filter { $0.status == .inProgress }
+        var totalCount: Int { movies.count + music.count + books.count }
+    }
+
+    /// 一次遍历完成分桶（保留 store.items 原有相对顺序，行为与旧的四处 filter 一致）
+    private func makeBuckets() -> HomeBuckets {
+        var buckets = HomeBuckets()
+        for item in store.items {
+            switch item.type {
+            case .movie: buckets.movies.append(item)
+            case .music: buckets.music.append(item)
+            case .book: buckets.books.append(item)
+            }
+            if item.status == .inProgress {
+                buckets.inProgress.append(item)
+            }
+        }
+        return buckets
     }
 
     var body: some View {
+        // 单次遍历分桶，供所有分栏共用，避免重复扫描全量数据
+        let buckets = makeBuckets()
+
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 32) {
-                welcomeHeader
-                statsMatrix
+                welcomeHeader(buckets: buckets)
+                statsMatrix(buckets: buckets)
 
-                if !inProgressItems.isEmpty {
-                    inProgressSection
+                if !buckets.inProgress.isEmpty {
+                    inProgressSection(items: buckets.inProgress)
                 }
 
-                if !movies.isEmpty {
+                if !buckets.movies.isEmpty {
                     mediaShelfSection(
                         title: "影视精选",
                         subtitle: "光影回响与电影胶片",
                         icon: "film.stack.fill",
                         type: .movie,
-                        items: movies,
+                        items: buckets.movies,
                         cardWidth: 142,
                         aspectRatio: 2.0 / 3.0
                     )
                 }
 
-                if !music.isEmpty {
+                if !buckets.music.isEmpty {
                     mediaShelfSection(
                         title: "黑胶唱片",
                         subtitle: "回转唱针与专辑艺术",
                         icon: "opticaldisc.fill",
                         type: .music,
-                        items: music,
+                        items: buckets.music,
                         cardWidth: 146,
                         aspectRatio: 1.0
                     )
                 }
 
-                if !books.isEmpty {
+                if !buckets.books.isEmpty {
                     mediaShelfSection(
                         title: "案头藏书",
                         subtitle: "书卷装帧与慢读岁月",
                         icon: "books.vertical.fill",
                         type: .book,
-                        items: books,
+                        items: buckets.books,
                         cardWidth: 142,
                         aspectRatio: 2.0 / 3.0
                     )
@@ -73,7 +94,6 @@ struct HomeView: View {
             .padding(.top, 40)
             .padding(.bottom, 48)
         }
-        .hideScrollIndicators()
         .background(ArtShelfStyle.paper)
         .sheet(item: $appState.detailItem) { item in
             DetailView(item: item)
@@ -84,7 +104,7 @@ struct HomeView: View {
 
     // MARK: - 欢迎页眉
 
-    private var welcomeHeader: some View {
+    private func welcomeHeader(buckets: HomeBuckets) -> some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
@@ -97,7 +117,7 @@ struct HomeView: View {
                         .foregroundStyle(ArtShelfStyle.ink)
                 }
 
-                Text(curationSummaryText)
+                Text(curationSummaryText(buckets: buckets))
                     .font(.system(size: 13))
                     .foregroundStyle(ArtShelfStyle.inkSecondary)
             }
@@ -117,27 +137,27 @@ struct HomeView: View {
         }
     }
 
-    private var curationSummaryText: String {
-        if store.items.isEmpty {
+    private func curationSummaryText(buckets: HomeBuckets) -> String {
+        if buckets.totalCount == 0 {
             return "开始搭建您的个人多媒体典藏空间"
         }
         var parts: [String] = []
-        if !movies.isEmpty { parts.append("\(movies.count) 部影视") }
-        if !music.isEmpty { parts.append("\(music.count) 张唱片") }
-        if !books.isEmpty { parts.append("\(books.count) 本书籍") }
-        return "珍藏了 " + parts.joined(separator: " · ") + " · 共 \(store.items.count) 件作品"
+        if !buckets.movies.isEmpty { parts.append("\(buckets.movies.count) 部影视") }
+        if !buckets.music.isEmpty { parts.append("\(buckets.music.count) 张唱片") }
+        if !buckets.books.isEmpty { parts.append("\(buckets.books.count) 本书籍") }
+        return "珍藏了 " + parts.joined(separator: " · ") + " · 共 \(buckets.totalCount) 件作品"
     }
 
     // MARK: - 策展数据矩阵卡片 (Stats Matrix)
 
-    private var statsMatrix: some View {
+    private func statsMatrix(buckets: HomeBuckets) -> some View {
         HStack(spacing: 16) {
             statCard(
                 title: "光影展厅",
                 type: .movie,
                 icon: "film.stack.fill",
                 accentColor: Color(red: 0.88, green: 0.32, blue: 0.22),
-                items: movies
+                items: buckets.movies
             )
 
             statCard(
@@ -145,7 +165,7 @@ struct HomeView: View {
                 type: .music,
                 icon: "opticaldisc.fill",
                 accentColor: Color(red: 0.90, green: 0.58, blue: 0.16),
-                items: music
+                items: buckets.music
             )
 
             statCard(
@@ -153,7 +173,7 @@ struct HomeView: View {
                 type: .book,
                 icon: "books.vertical.fill",
                 accentColor: Color(red: 0.24, green: 0.65, blue: 0.44),
-                items: books
+                items: buckets.books
             )
         }
     }
@@ -178,7 +198,7 @@ struct HomeView: View {
 
     // MARK: - 正在品味焦点区 (In Progress)
 
-    private var inProgressSection: some View {
+    private func inProgressSection(items: [MediaItem]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 Circle()
@@ -196,7 +216,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(inProgressItems) { item in
+                    ForEach(items) { item in
                         InProgressCard(item: item) {
                             appState.detailItem = item
                         }
@@ -204,7 +224,6 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .hideScrollIndicators()
         }
     }
 
@@ -241,7 +260,8 @@ struct HomeView: View {
                     appState.navigateToCategory(type)
                 } label: {
                     HStack(spacing: 4) {
-                        Text("查看全部 \(items.count) 项")
+                        let unit: String = type == .movie ? "部影视" : (type == .music ? "张唱片" : "本书籍")
+                        Text("查看全部 \(items.count) \(unit)")
                             .font(.system(size: 12, weight: .medium))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 9, weight: .bold))
@@ -265,7 +285,6 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 6)
             }
-            .hideScrollIndicators()
         }
     }
 
@@ -347,7 +366,7 @@ private struct StatCardView: View {
                         .font(.system(size: 26, weight: .bold).monospacedDigit())
                         .foregroundStyle(ArtShelfStyle.ink)
 
-                    Text("项")
+                    Text(type == .movie ? "部" : (type == .music ? "张" : "本"))
                         .font(.system(size: 11))
                         .foregroundStyle(ArtShelfStyle.inkTertiary)
                 }
@@ -404,15 +423,22 @@ private struct InProgressCard: View {
                         cornerRadius: 5,
                         isHovered: isHovered
                     )
-                } else {
-                    CoverImageView(
+                } else if item.type == .movie {
+                    MovieCoverView(
                         localPath: item.localCoverPath,
                         remoteURL: item.coverURL,
-                        aspectRatio: item.type.coverAspectRatio,
-                        cornerRadius: 6
+                        size: 48,
+                        cornerRadius: 5,
+                        isHovered: isHovered
                     )
-                    .frame(width: 48)
-                    .frame(height: 48 / item.type.coverAspectRatio)
+                } else {
+                    // 迷你 48pt 封面不启用翻页细节（小尺寸下糊成一团），仅保留卡片整体轻浮起
+                    BookCoverView(
+                        localPath: item.localCoverPath,
+                        remoteURL: item.coverURL,
+                        size: 48,
+                        cornerRadius: 5
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -477,15 +503,23 @@ private struct HomeShelfCard: View {
                             isHovered: isHovered
                         )
                         .cardHoverEffect(isHovered: isHovered)
-                    } else {
-                        CoverImageView(
+                    } else if item.type == .movie {
+                        MovieCoverView(
                             localPath: item.localCoverPath,
                             remoteURL: item.coverURL,
-                            aspectRatio: aspectRatio,
-                            cornerRadius: ArtShelfStyle.cardRadius
+                            size: width,
+                            cornerRadius: ArtShelfStyle.cardRadius,
+                            isHovered: isHovered
                         )
-                        .frame(width: width)
-                        .frame(height: width / aspectRatio)
+                        .cardHoverEffect(isHovered: isHovered)
+                    } else {
+                        BookCoverView(
+                            localPath: item.localCoverPath,
+                            remoteURL: item.coverURL,
+                            size: width,
+                            cornerRadius: ArtShelfStyle.cardRadius,
+                            isHovered: isHovered
+                        )
                         .cardHoverEffect(isHovered: isHovered)
                     }
 

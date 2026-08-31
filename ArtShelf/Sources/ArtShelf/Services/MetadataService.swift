@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// 搜索结果统一模型
 struct SearchResult: Identifiable {
@@ -6,6 +7,7 @@ struct SearchResult: Identifiable {
     let title: String
     let creator: String?
     let year: Int?
+    let genre: String?       // 流派 / 类型（如 Drama · Thriller）
     let coverURL: String?
     let synopsis: String?
     let webURL: String?
@@ -128,6 +130,8 @@ final class MetadataService {
     static let shared = MetadataService()
     private init() {}
 
+    private let logger = Logger(subsystem: "ArtShelf", category: "MetadataService")
+
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
@@ -206,6 +210,7 @@ final class MetadataService {
                     title: isMusic ? (result.collectionName ?? title) : title,
                     creator: result.artistName,
                     year: extractYear(from: result.releaseDate),
+                    genre: result.primaryGenreName,
                     coverURL: result.highResArtwork,
                     synopsis: result.longDescription ?? result.shortDescription,
                     webURL: result.trackViewUrl ?? result.collectionViewUrl,
@@ -215,7 +220,7 @@ final class MetadataService {
                 )
             }
         } catch {
-            print("⚠️ iTunes 搜索失败 [\(media)]: \(error)")
+            logger.warning("iTunes 搜索失败 [\(media, privacy: .public)]: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -272,6 +277,7 @@ final class MetadataService {
                             title: page.title.removingWikipediaDisambiguation,
                             creator: nil,
                             year: self.extractYear(fromText: page.extract),
+                            genre: nil,  // Wikipedia 摘要没有流派字段，保持 nil
                             coverURL: poster ?? page.thumbnail?.source,
                             synopsis: page.extract,
                             webURL: page.fullurl,
@@ -293,7 +299,7 @@ final class MetadataService {
                     .map(\.1)
             }
         } catch {
-            print("⚠️ Wikipedia 电影搜索失败: \(error)")
+            logger.warning("Wikipedia 电影搜索失败: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -325,8 +331,9 @@ final class MetadataService {
                 let show = result.show
                 return SearchResult(
                     title: show.name,
-                    creator: show.genres.isEmpty ? nil : show.genres.joined(separator: " · "),
+                    creator: nil,
                     year: extractYear(from: show.premiered),
+                    genre: show.genres.isEmpty ? nil : show.genres.joined(separator: " · "),
                     coverURL: show.image?.original ?? show.image?.medium,
                     synopsis: show.summary?.strippingHTML,
                     webURL: show.url,
@@ -336,7 +343,7 @@ final class MetadataService {
                 )
             }
         } catch {
-            print("⚠️ TVMaze 剧集搜索失败: \(error)")
+            logger.warning("TVMaze 剧集搜索失败: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -360,6 +367,7 @@ final class MetadataService {
                     title: title,
                     creator: info.authors?.joined(separator: ", "),
                     year: extractYear(from: info.publishedDate),
+                    genre: nil,
                     coverURL: coverURL,
                     synopsis: info.description,
                     webURL: info.previewLink ?? info.infoLink,
@@ -369,7 +377,7 @@ final class MetadataService {
                 )
             }
         } catch {
-            print("⚠️ Google Books 搜索失败: \(error)")
+            logger.warning("Google Books 搜索失败: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }

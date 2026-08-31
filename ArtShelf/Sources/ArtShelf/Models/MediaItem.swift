@@ -45,6 +45,51 @@ struct MediaItem: Identifiable, Codable, Hashable {
         self.type = type
     }
 
+    // MARK: - 解码
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, type
+        case creator, year, synopsis, genre
+        case coverURL, localCoverPath
+        case rating, notes
+        case tags, status, customSortOrder
+        case localFilePath, webURL, appleMusicURL
+        case dateAdded, lastViewedDate
+        case albumName
+    }
+
+    /// 手写解码：旧版 JSON 缺省字段时回落默认值，避免整库解码失败
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        type = try container.decode(MediaType.self, forKey: .type)
+
+        creator = try container.decodeIfPresent(String.self, forKey: .creator)
+        year = try container.decodeIfPresent(Int.self, forKey: .year)
+        synopsis = try container.decodeIfPresent(String.self, forKey: .synopsis)
+        genre = try container.decodeIfPresent(String.self, forKey: .genre)
+
+        coverURL = try container.decodeIfPresent(String.self, forKey: .coverURL)
+        localCoverPath = try container.decodeIfPresent(String.self, forKey: .localCoverPath)
+
+        rating = try container.decodeIfPresent(Int.self, forKey: .rating) ?? 0
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        status = try container.decodeIfPresent(MediaStatus.self, forKey: .status) ?? .planned
+        customSortOrder = try container.decodeIfPresent(Int.self, forKey: .customSortOrder)
+
+        localFilePath = try container.decodeIfPresent(String.self, forKey: .localFilePath)
+        webURL = try container.decodeIfPresent(String.self, forKey: .webURL)
+        appleMusicURL = try container.decodeIfPresent(String.self, forKey: .appleMusicURL)
+
+        dateAdded = try container.decodeIfPresent(Date.self, forKey: .dateAdded) ?? Date()
+        lastViewedDate = try container.decodeIfPresent(Date.self, forKey: .lastViewedDate)
+
+        albumName = try container.decodeIfPresent(String.self, forKey: .albumName)
+    }
+
     // MARK: - 便捷方法
 
     /// 是否在今天浏览过

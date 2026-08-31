@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// 从网页链接提取的元数据（OpenGraph 标准）
 struct LinkMetadata {
@@ -16,6 +17,10 @@ struct LinkMetadata {
 final class LinkMetadataService {
 
     static let shared = LinkMetadataService()
+
+    /// 日志（subsystem 统一为 "ArtShelf"，category 为类名）
+    private static let logger = Logger(subsystem: "ArtShelf", category: "LinkMetadataService")
+
     private init() {}
 
     private let session: URLSession = {
@@ -50,7 +55,7 @@ final class LinkMetadataService {
 
             return parse(html: html, baseURL: url)
         } catch {
-            print("⚠️ 链接元数据抓取失败: \(error)")
+            Self.logger.error("链接元数据抓取失败: \(error, privacy: .public)")
             return nil
         }
     }
