@@ -2,7 +2,7 @@ import Foundation
 import os
 
 /// 搜索结果统一模型
-struct SearchResult: Identifiable {
+struct SearchResult: Identifiable, Sendable {
     let id = UUID()
     let title: String
     let creator: String?
@@ -18,12 +18,12 @@ struct SearchResult: Identifiable {
 
 // MARK: - iTunes Search API 响应
 
-private struct ITunesResponse: Codable {
+private struct ITunesResponse: Codable, Sendable {
     let resultCount: Int
     let results: [ITunesResult]
 }
 
-private struct ITunesResult: Codable {
+private struct ITunesResult: Codable, Sendable {
     let trackName: String?
     let collectionName: String?
     let artistName: String?
@@ -46,17 +46,17 @@ private struct ITunesResult: Codable {
 
 // MARK: - Google Books API 响应
 
-private struct GoogleBooksResponse: Codable {
+private struct GoogleBooksResponse: Codable, Sendable {
     let totalItems: Int
     let items: [GoogleBookItem]?
 }
 
-private struct GoogleBookItem: Codable {
+private struct GoogleBookItem: Codable, Sendable {
     let id: String
     let volumeInfo: VolumeInfo
 }
 
-private struct VolumeInfo: Codable {
+private struct VolumeInfo: Codable, Sendable {
     let title: String?
     let authors: [String]?
     let description: String?
@@ -66,22 +66,22 @@ private struct VolumeInfo: Codable {
     let infoLink: String?
 }
 
-private struct ImageLinks: Codable {
+private struct ImageLinks: Codable, Sendable {
     let smallThumbnail: String?
     let thumbnail: String?
 }
 
 // MARK: - Wikipedia API 响应
 
-private struct WikipediaResponse: Decodable {
+private struct WikipediaResponse: Decodable, Sendable {
     let query: WikipediaQuery?
 }
 
-private struct WikipediaQuery: Decodable {
+private struct WikipediaQuery: Decodable, Sendable {
     let pages: [String: WikipediaPage]
 }
 
-private struct WikipediaPage: Decodable {
+private struct WikipediaPage: Decodable, Sendable {
     let pageid: Int
     let title: String
     let index: Int?
@@ -90,7 +90,7 @@ private struct WikipediaPage: Decodable {
     let fullurl: String?
 }
 
-private struct WikipediaThumbnail: Decodable {
+private struct WikipediaThumbnail: Decodable, Sendable {
     let source: String
 }
 
@@ -99,18 +99,18 @@ private struct WikipediaThumbnail: Decodable {
 /// 这个端点会返回条目的首图，**包括合理使用的非自由图片**——
 /// 而 action API 的 `prop=pageimages` 只给自由许可的图，
 /// 因此电影海报在那里永远是 nil。海报只能从这里拿。
-private struct WikipediaSummary: Decodable {
+private struct WikipediaSummary: Decodable, Sendable {
     let thumbnail: WikipediaThumbnail?
     let originalimage: WikipediaThumbnail?
 }
 
 // MARK: - TVMaze API 响应
 
-private struct TVMazeSearchResult: Decodable {
+private struct TVMazeSearchResult: Decodable, Sendable {
     let show: TVMazeShow
 }
 
-private struct TVMazeShow: Decodable {
+private struct TVMazeShow: Decodable, Sendable {
     let name: String
     let genres: [String]
     let premiered: String?
@@ -119,13 +119,13 @@ private struct TVMazeShow: Decodable {
     let url: String?
 }
 
-private struct TVMazeImage: Decodable {
+private struct TVMazeImage: Decodable, Sendable {
     let medium: String?
     let original: String?
 }
 
 /// 元数据搜索服务
-final class MetadataService {
+final class MetadataService: Sendable {
 
     static let shared = MetadataService()
     private init() {}

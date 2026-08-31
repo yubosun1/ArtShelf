@@ -2,7 +2,7 @@ import Foundation
 import os
 
 /// 从网页链接提取的元数据（OpenGraph 标准）
-struct LinkMetadata {
+struct LinkMetadata: Sendable {
     let title: String?
     let coverURL: String?
     let description: String?
@@ -14,7 +14,7 @@ struct LinkMetadata {
 ///
 /// 兼容常见的页面（豆瓣、IMDb、TMDB、维基、YouTube、Apple 等），
 /// 这些站点大多输出 og: 标签。抓取失败时返回 nil，由调用方回退到纯手动填写。
-final class LinkMetadataService {
+final class LinkMetadataService: Sendable {
 
     static let shared = LinkMetadataService()
 

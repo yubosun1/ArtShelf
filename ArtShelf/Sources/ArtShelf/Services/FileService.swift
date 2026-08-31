@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import os
 
 /// 文件 / 链接打开服务
-final class FileService {
+final class FileService: Sendable {
 
     static let shared = FileService()
 
@@ -36,6 +36,7 @@ final class FileService {
     // MARK: - 文件选择器
 
     /// 弹出文件选择面板，返回选中文件路径
+    @MainActor
     func pickFile(allowedTypes: [String], prompt: String = "选择文件") -> String? {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -50,6 +51,7 @@ final class FileService {
     }
 
     /// 弹出文件夹选择面板，返回选中目录路径
+    @MainActor
     func pickDirectory(prompt: String = "选择文件夹") -> String? {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -61,6 +63,7 @@ final class FileService {
     }
 
     /// 选择封面图片
+    @MainActor
     func pickCoverImage() -> String? {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -75,21 +78,26 @@ final class FileService {
 
     // MARK: - 打开方式
 
-    /// 根据媒体类型智能打开
-    func openMedia(_ item: MediaItem) {
+    /// 根据媒体类型智能打开（接收纯值参数，服务层不依赖数据模型）
+    func openMedia(
+        localFilePath: String?,
+        webURL: String?,
+        appleMusicURL: String?,
+        type: MediaType
+    ) {
         // 优先打开本地文件
-        if let localPath = item.localFilePath,
+        if let localPath = localFilePath,
            FileManager.default.fileExists(atPath: localPath) {
             openLocalFile(at: localPath)
             return
         }
         // 其次打开在线链接
-        if let webURL = item.webURL {
+        if let webURL {
             openURL(webURL)
             return
         }
         // 音乐：尝试 Apple Music
-        if item.type == .music, let appleMusic = item.appleMusicURL {
+        if type == .music, let appleMusic = appleMusicURL {
             openURL(appleMusic)
             return
         }

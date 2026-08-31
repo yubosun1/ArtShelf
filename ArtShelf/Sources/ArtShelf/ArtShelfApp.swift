@@ -1,58 +1,48 @@
 import SwiftUI
-import AppKit
 
-@main
+/// 应用入口（main.swift 调用 `ArtShelfApp.main()`）
+@MainActor
 struct ArtShelfApp: App {
 
-    @StateObject private var store = DataStore()
-    @StateObject private var appState = AppState()
-    @ObservedObject private var themeManager = ThemeManager.shared
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var appState = AppState()
+    @State private var store = LibraryStore.shared
 
     var body: some Scene {
-        WindowGroup {
+        Window("ArtShelf", id: "main") {
             ContentView()
-                .environmentObject(store)
-                .environmentObject(appState)
-                .onAppear { appDelegate.store = store }
-                .tint(ArtShelfStyle.accent)
-                .frame(minWidth: 980, minHeight: 640)
+                .environment(appState)
+                .environment(store)
+                .frame(minWidth: 1100, idealWidth: 1240, minHeight: 720, idealHeight: 820)
+                .background(Theme.bg)
         }
-        .defaultSize(width: 1280, height: 820)
         .windowStyle(.hiddenTitleBar)
         .commands {
-            CommandGroup(replacing: .appSettings) {
-                Button("偏好设置…") {
-                    appState.showingSettingsSheet = true
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
+            // ⌘N 收录（替换默认的「新建窗口」）
             CommandGroup(replacing: .newItem) {
-                Button("添加媒体") { appState.showingAddSheet = true }
+                Button("收录新媒体…") { appState.showingAdd = true }
                     .keyboardShortcut("n", modifiers: .command)
             }
-            CommandGroup(after: .toolbar) {
-                Button("搜索") { appState.searchText = "" }
+            // ⌘F 全局搜索
+            CommandGroup(after: .textEditing) {
+                Button("搜索藏品…") { appState.searchFocusTick += 1 }
                     .keyboardShortcut("f", modifiers: .command)
+            }
+            // ⌘1–⌘5 切换 Tab
+            CommandMenu("前往") {
+                ForEach(AppTab.allCases) { tab in
+                    Button(tab.title) {
+                        appState.tab = tab
+                        appState.closeDetail()
+                    }
+                    .keyboardShortcut(tab.keyEquivalent, modifiers: .command)
+                }
             }
         }
 
+        // ⌘, 设置（系统自动挂接快捷键）
         Settings {
-            // 系统偏好设置窗口里 @Environment(\.dismiss) 无效，隐藏无反应的关闭按钮
-            SettingsView(showsDismissButton: false)
-                .preferredColorScheme(themeManager.appearance.colorScheme)
+            SettingsView()
+                .environment(store)
         }
-    }
-}
-
-/// 应用代理——负责退出前的数据兜底保存
-final class AppDelegate: NSObject, NSApplicationDelegate {
-
-    /// 弱引用主窗口使用的 DataStore，主窗口出现时由 ArtShelfApp 注入
-    weak var store: DataStore?
-
-    func applicationWillTerminate(_ notification: Notification) {
-        // 退出前同步落盘，避免防抖窗口内退出丢失最后一次修改
-        store?.flush()
     }
 }

@@ -1,0 +1,104 @@
+import Foundation
+import os
+
+/// 库文件加载与 v2→v3 迁移
+///
+/// v3 与 v2 共用 `library.json`：v3 文档带 `schemaVersion: 3`。
+/// `MediaItem` 的解码器已向下兼容 v2 字段（含 notes 字符串转手记），
+/// 这里只负责版本甄别、备份与迁移默认值。
+enum LibraryMigration {
+
+    private static let logger = Logger(subsystem: "ArtShelf", category: "LibraryMigration")
+
+    /// 当前线格式版本
+    static let schemaVersion = 3
+
+    // MARK: - 文档格式
+
+    /// v3 库文档（存储与导出共用）
+    struct LibraryDocument: Codable {
+        var schemaVersion: Int = LibraryMigration.schemaVersion
+        var exportedAt: Date = Date()
+        var items: [MediaItem]
+    }
+
+    /// v2 包装格式（`{"items":…, "tagOrder":…}`）；v1 为纯数组
+    private struct V2Wrapper: Codable {
+        var items: [MediaItem]
+    }
+
+    private struct HeaderProbe: Codable {
+        var schemaVersion: Int?
+    }
+
+    enum LoadResult {
+        case empty                // 无数据文件
+        case loaded([MediaItem])  // v3 直接加载
+        case migrated([MediaItem])// v2 → v3 迁移成功（调用方应立即落盘为新格式）
+        case failed               // 无法解析（已备份损坏文件）
+    }
+
+    // MARK: - 加载 / 迁移
+
+    /// 从目录加载库；v2 文件自动迁移（先备份，绝不覆盖原始数据）
+    static func load(from directory: URL) -> LoadResult {
+        let file = directory.appendingPathComponent("library.json")
+        guard FileManager.default.fileExists(atPath: file.path) else { return .empty }
+
+        do {
+            let data = try Data(contentsOf: file)
+
+            // v3：schemaVersion == 3
+            if (try? JSONDecoder().decode(HeaderProbe.self, from: data))?.schemaVersion == schemaVersion,
+               let doc = try? JSONDecoder().decode(LibraryDocument.self, from: data) {
+                return .loaded(doc.items)
+            }
+
+            // v2 包装格式 / v1 纯数组
+            let decoder = JSONDecoder()
+            var legacy: [MediaItem]?
+            if let wrapped = try? decoder.decode(V2Wrapper.self, from: data) {
+                legacy = wrapped.items
+            } else if let array = try? decoder.decode([MediaItem].self, from: data) {
+                legacy = array
+            }
+            if let items = legacy {
+                backupLegacy(file, in: directory)
+                return .migrated(items.map(deriveMigrationDefaults))
+            }
+
+            // 无法解析：备份后启动空库，避免覆盖写丢失数据
+            backupCorrupt(file, in: directory)
+            logger.error("库文件无法解析，已备份损坏文件")
+            return .failed
+        } catch {
+            logger.error("读取库文件失败: \(error, privacy: .public)")
+            return .failed
+        }
+    }
+
+    /// 迁移默认值：进行中藏品的最近品味时间回落到最近浏览 / 添加时间
+    static func deriveMigrationDefaults(_ item: MediaItem) -> MediaItem {
+        var item = item
+        if item.status == .inProgress, item.lastTastedAt == nil {
+            item.lastTastedAt = item.lastViewedDate ?? item.dateAdded
+        }
+        return item
+    }
+
+    // MARK: - 备份
+
+    private static func backupLegacy(_ file: URL, in directory: URL) {
+        let backup = directory.appendingPathComponent("library.v2.backup.json")
+        guard !FileManager.default.fileExists(atPath: backup.path) else { return }
+        try? FileManager.default.copyItem(at: file, to: backup)
+    }
+
+    private static func backupCorrupt(_ file: URL, in directory: URL) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let backup = directory.appendingPathComponent("library.json.corrupt-\(formatter.string(from: Date()))")
+        try? FileManager.default.copyItem(at: file, to: backup)
+    }
+}

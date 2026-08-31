@@ -3,7 +3,7 @@ import os
 
 /// EPUB 封面提取服务
 /// 使用 Swift 原生字符串匹配，避免 NSRegularExpression 在后台线程抛出 Obj-C 异常
-final class EPUBService: @unchecked Sendable {
+final class EPUBService: Sendable {
 
     static let shared = EPUBService()
 
@@ -55,7 +55,7 @@ final class EPUBService: @unchecked Sendable {
         }
 
         let ext = coverURL.pathExtension.isEmpty ? "jpg" : coverURL.pathExtension
-        let coverFile = MediaItem.coversDirectory
+        let coverFile = LibraryPaths.coversDirectory
             .appendingPathComponent("\(UUID().uuidString).\(ext)")
         do {
             try imageData.write(to: coverFile)
