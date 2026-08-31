@@ -45,10 +45,18 @@ struct CoverImageView: View {
 
     let item: MediaItem
     var cornerRadius: CGFloat = Theme.cardCorner
+    /// 占位封面是否显示左下排版（环境色虚化层用无字版）
+    var showsPlaceholderText: Bool = true
     var onDominantColor: ((Color?) -> Void)? = nil
 
     @Environment(LibraryStore.self) private var store
     @State private var image: NSImage?
+
+    /// 占位封面（生成式渐变）
+    private var generatedCover: GeneratedCoverView {
+        GeneratedCoverView(title: item.title, creator: item.creator, year: yearText,
+                           cornerRadius: 0, showsText: showsPlaceholderText)
+    }
 
     var body: some View {
         Group {
@@ -67,25 +75,19 @@ struct CoverImageView: View {
     }
 
     private var placeholder: some View {
-        ZStack {
-            Theme.well
-            VStack(spacing: 6) {
-                Image(systemName: item.type.systemImage)
-                    .font(.system(size: 20, weight: .light))
-                    .foregroundStyle(Theme.ink3)
-                Text(item.title)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.ink3)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
-            }
-        }
+        generatedCover
+    }
+
+    private var yearText: String? {
+        [item.creator, item.year.map(String.init)].compactMap { $0 }.isEmpty
+            ? nil
+            : [item.creator, item.year.map(String.init)].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func load() async {
         guard let result = await CoverImageLoader.load(for: item) else {
-            onDominantColor?(nil)
+            // 无封面可用：上报生成式封面的主色，光晕与环境渲染仍然成立
+            onDominantColor?(generatedCover.dominantColor)
             return
         }
         let (loaded, backfillPath) = result

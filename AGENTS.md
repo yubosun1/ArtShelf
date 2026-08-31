@@ -20,11 +20,12 @@ ArtShelf —— macOS 原生个人媒体策展应用（影视 / 音乐 / 书籍�
 ./build.sh          # 一键编译 release、打包 ArtShelf.app 并安装到 /Applications
 cd ArtShelf && swift build    # 仅编译（调试）
 cd ArtShelf && swift run ArtShelf --self-test   # 内置数据层自测（仅 Debug 构建）
+cd ArtShelf && swift run ArtShelf --render-preview /tmp/preview   # 离屏渲染主要页面为 PNG（演示数据，仅 Debug）
 ```
 
 要求：macOS 14.0+（部署目标），Xcode 命令行工具或完整 Xcode，Swift 6 工具链。
 
-注意：本机仅有 Command Line Tools（无完整 Xcode）时，构建前需 `export SDKROOT="$(xcrun --show-sdk-path)"`；XCTest 不可用，测试以 `--self-test` 内置自测进行（`Sources/ArtShelf/SelfTest/`）。
+注意：本机仅有 Command Line Tools（无完整 Xcode）时，构建前需 `export SDKROOT="$(xcrun --show-sdk-path)"`；XCTest 与 `#Preview` 宏不可用（宏插件缺失，代码中勿用），测试以 `--self-test` 内置自测进行，视觉对照用 `--render-preview`（两者均在 `Sources/ArtShelf/SelfTest/`）。终端无「屏幕录制」权限时 `screencapture` 只能截到壁纸，勿用于验证窗口渲染。
 
 ## 工程约定
 

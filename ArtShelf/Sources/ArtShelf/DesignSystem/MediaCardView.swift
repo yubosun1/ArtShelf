@@ -66,12 +66,16 @@ struct MediaCardView: View {
         }
     }
 
-    /// 副标题行：评分优先，其次创作者 / 年份
+    /// 副标题行：评分优先，进行中给进度，其次状态，兜底创作者 / 年份
     private var metaLine: String {
         if item.rating > 0 {
             return "★ " + String(format: "%.1f", Double(item.rating))
         }
-        return [item.creator, item.year.map(String.init)].compactMap { $0 }.joined(separator: " · ")
+        if item.status == .inProgress, item.progressTotal > 0 {
+            return item.progressText
+        }
+        let byline = [item.creator, item.year.map(String.init)].compactMap { $0 }.joined(separator: " · ")
+        return byline.isEmpty ? item.statusLabel : byline
     }
 
     /// 右键菜单（product-design.md §4.2）

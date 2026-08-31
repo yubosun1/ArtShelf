@@ -33,8 +33,8 @@ struct NowHeroView: View {
 
     private var ambient: some View {
         ZStack {
-            // 封面自身放大模糊打底
-            CoverImageView(item: item, cornerRadius: 0)
+            // 封面自身放大模糊打底（无字版，避免文字虚化成鬼影）
+            CoverImageView(item: item, cornerRadius: 0, showsPlaceholderText: false)
                 .blur(radius: 90)
                 .opacity(0.55)
             // 主色径向渲染
