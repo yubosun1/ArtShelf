@@ -18,8 +18,21 @@ struct LibraryView: View {
     /// 网格可用宽度（随窗口变化，驱动列数计算）
     @State private var gridWidth: CGFloat = 0
 
-    /// 网格间距：比「此刻」精选行（rowSpacing 20）松一档，库页全量陈列需要更多呼吸
-    private static let gridSpacing: CGFloat = 24
+    /// 网格最小间距：比「此刻」精选行（rowSpacing 20）松一档，库页全量陈列需要更多呼吸
+    private static let minGridSpacing: CGFloat = 24
+
+    /// 动态列间距：吃掉列组与可用宽之间的余量，让网格左右缘同时贴齐内容区
+    /// （下限 minGridSpacing；上限 56，防两列极端时间距过散，余量宁留右侧）
+    private var gridSpacing: CGFloat {
+        guard displayColumns > 1, gridWidth > 0 else { return Self.minGridSpacing }
+        let s = (gridWidth - CGFloat(displayColumns) * Theme.cardWidth) / CGFloat(displayColumns - 1)
+        return min(max(s, Self.minGridSpacing), 56)
+    }
+
+    /// 实际陈列列数：藏品不足一整行时按件数计，间距据实列重算（避免右侧无谓留空）
+    private var displayColumns: Int {
+        min(columnCount, max(1, results.count))
+    }
 
     /// 库名：影视→片库 / 音乐→唱片 / 书籍→书架
     private var libraryTitle: String {
@@ -132,7 +145,7 @@ struct LibraryView: View {
         } else {
             LazyVGrid(
                 columns: gridColumns,
-                spacing: Self.gridSpacing
+                spacing: gridSpacing
             ) {
                 ForEach(results) { item in
                     MediaCardView(item: item)
@@ -147,19 +160,20 @@ struct LibraryView: View {
         }
     }
 
-    /// 恒定列宽网格：列数 = max(1, ⌊(可用宽 + 间距) / (列宽 + 间距)⌋)，
-    /// 列宽与间距取 Theme 令牌，窗口缩放时仅列数变化、卡片尺寸恒定
+    /// 恒定列宽网格：列数 = max(1, ⌊(可用宽 + 最小间距) / (列宽 + 最小间距)⌋)，
+    /// 列宽取 Theme 令牌，窗口缩放时仅列数变化、卡片尺寸恒定；
+    /// 列数按最小间距估算保持稳定，实际间距由 gridSpacing 动态吃掉余量
     private var columnCount: Int {
-        max(1, Int(floor((gridWidth + Self.gridSpacing) / (Theme.cardWidth + Self.gridSpacing))))
+        max(1, Int(floor((gridWidth + Self.minGridSpacing) / (Theme.cardWidth + Self.minGridSpacing))))
     }
 
     private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.fixed(Theme.cardWidth), spacing: Self.gridSpacing), count: columnCount)
+        Array(repeating: GridItem(.fixed(Theme.cardWidth), spacing: gridSpacing), count: columnCount)
     }
 
-    /// 列组总宽（列宽×列数 + 间距），用于把网格显式钉到容器前导缘
+    /// 列组总宽（列宽×实列数 + 动态间距），用于把网格显式钉到容器前导缘
     private var gridContentWidth: CGFloat {
-        CGFloat(columnCount) * Theme.cardWidth + CGFloat(max(0, columnCount - 1)) * Self.gridSpacing
+        CGFloat(displayColumns) * Theme.cardWidth + CGFloat(max(0, displayColumns - 1)) * gridSpacing
     }
 
     /// 空库：引导收录第一件

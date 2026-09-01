@@ -16,6 +16,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 appearanceSection
+                accentSection
                 dataSection
                 storageSection
                 aboutSection
@@ -72,35 +73,89 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         section(title: "外观") {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("跟随系统自动切换 · 浅色为白昼放映厅，深色为暗房")
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink2)
-                HStack(spacing: 24) {
-                    appearanceSwatch(color: swatchLight, name: "白昼放映厅")
-                    appearanceSwatch(color: swatchDark, name: "暗房")
+            HStack(spacing: 24) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    appearanceSwatch(mode)
                 }
             }
         }
     }
 
-    /// 色样展示：固定色值（#F5F4F0 / #0D0E11，仅作预览，不随外观切换）
-    private let swatchLight = Color(red: 0xF5 / 255.0, green: 0xF4 / 255.0, blue: 0xF0 / 255.0)
-    private let swatchDark = Color(red: 0x0D / 255.0, green: 0x0E / 255.0, blue: 0x11 / 255.0)
-
-    private func appearanceSwatch(color: Color, name: String) -> some View {
-        VStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(color)
-                .frame(width: 56, height: 40)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Theme.rule, lineWidth: 1)
-                )
-            Text(name)
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.ink3)
+    /// 外观三选色样：跟随系统（半浅半深）/ 白昼放映厅（浅底）/ 暗房（深底）
+    private func appearanceSwatch(_ mode: AppearanceMode) -> some View {
+        let selected = ThemeSettings.shared.appearanceMode == mode
+        return Button {
+            ThemeSettings.shared.appearanceMode = mode
+        } label: {
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(swatchFill(for: mode))
+                    .frame(width: 56, height: 40)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(selected ? Theme.amber : Theme.rule, lineWidth: selected ? 2 : 1)
+                    )
+                Text(mode.title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(selected ? Theme.ink : Theme.ink3)
+            }
         }
+        .buttonStyle(.plain)
+    }
+
+    /// 色样填充：固定色值（仅作预览，不随外观切换）
+    private func swatchFill(for mode: AppearanceMode) -> AnyShapeStyle {
+        let light = Color(red: 0xF5 / 255.0, green: 0xF4 / 255.0, blue: 0xF0 / 255.0)
+        let dark = Color(red: 0x0D / 255.0, green: 0x0E / 255.0, blue: 0x11 / 255.0)
+        switch mode {
+        case .light: return AnyShapeStyle(light)
+        case .dark:  return AnyShapeStyle(dark)
+        case .system:
+            return AnyShapeStyle(LinearGradient(
+                stops: [
+                    .init(color: light, location: 0),
+                    .init(color: light, location: 0.5),
+                    .init(color: dark, location: 0.5),
+                    .init(color: dark, location: 1)
+                ],
+                startPoint: .leading, endPoint: .trailing
+            ))
+        }
+    }
+
+    // MARK: - 主题色
+
+    private var accentSection: some View {
+        section(title: "主题色") {
+            HStack(spacing: 20) {
+                ForEach(AccentTheme.allCases) { accent in
+                    accentSwatch(accent)
+                }
+            }
+        }
+    }
+
+    /// 主题色样：圆形色点，选中态外圈加粗描边
+    private func accentSwatch(_ accent: AccentTheme) -> some View {
+        let selected = ThemeSettings.shared.accent == accent
+        return Button {
+            ThemeSettings.shared.accent = accent
+        } label: {
+            VStack(spacing: 6) {
+                Circle()
+                    .fill(accent.button)
+                    .frame(width: 26, height: 26)
+                    .padding(3)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(selected ? Theme.ink2 : Theme.rule, lineWidth: selected ? 2 : 1)
+                    )
+                Text(accent.title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(selected ? Theme.ink : Theme.ink3)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - 数据

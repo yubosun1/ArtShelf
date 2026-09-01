@@ -7,6 +7,11 @@ struct ArtShelfApp: App {
     @State private var appState = AppState()
     @State private var store = LibraryStore.shared
 
+    init() {
+        // 启动时应用外观设置（跟随系统 / 强制浅 / 强制深）
+        ThemeSettings.shared.applyAppearance()
+    }
+
     var body: some Scene {
         Window("ArtShelf", id: "main") {
             ContentView()

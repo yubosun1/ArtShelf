@@ -76,7 +76,8 @@ Sources/ArtShelf/
 ## 4. 设计系统实现
 
 - **语义令牌**：`DesignSystem/Theme.swift` 以 `dynamic(light:dark:)` 定义颜色，令牌口径与 `product-design.md` §4.1 一一对应；视图禁止硬编码色值
-- **外观跟随系统**：依赖系统外观，深浅令牌自动生效，不做手动切换
+- **外观三态**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 持久化）提供跟随系统 / 白昼放映厅 / 暗房三态，切换时设 `NSApplication.appearance` 全局生效
+- **主题色四套**：琥珀 / 靛蓝 / 青玉 / 胭脂；`Theme.amber` 等令牌转发到 `ThemeSettings.shared.accent` 的计算属性，依赖 Observation 运行时追踪，切换后全部引用点自动刷新
 - **封面主色光晕**：`NSImage+AverageColor.swift` 以 `CIAreaAverage` 降采样取主色，按令牌强度渲染
 - **Hero 环境渲染**：封面图放大 + `.blur(radius:)` + 径向渐变叠色，底部渐隐融入画布
 - **字体**：系统字体栈，不设自定义字体
@@ -96,7 +97,7 @@ Sources/ArtShelf/
 
 ## 6. 窗口与交互
 
-- SwiftUI `Window` 场景单窗口；隐藏工具栏标题，窗口 chrome 为自绘双行（28pt 标题色条 + 菜单行紧贴，顶栏与内容区同轴 40）
+- SwiftUI `Window` 场景单窗口；隐藏工具栏标题，窗口 chrome 为单行 48pt（`WindowChrome`：styleMask 加 `fullSizeContentView` + titlebar 透明 + 忽略顶部安全区，红绿灯下移至顶栏视轴，缩放/激活时经通知重放偏移）
 - 菜单命令：`.commands` 注册 `⌘1`–`⌘5` 切 Tab、`⌘N` 收录、`⌘F` 聚焦搜索
 - 详情为整版页面（导航栈内切换）；`Esc` 分层关闭（搜索浮层 → 详情 → 收录）
 - 全应用滚动条隐藏（滚动区与笔记输入框 `scrollIndicators(.hidden)`）

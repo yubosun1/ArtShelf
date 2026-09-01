@@ -2,8 +2,8 @@ import SwiftUI
 
 /// 顶栏：Logo + Tab 导航 + 全局搜索（结果浮层锚定搜索框正下方）+ 收录 / 设置入口
 ///
-/// 上方已有独立标题条（ContentView），红绿灯不再与本行争位；
-/// 左右留白与内容区同为 40，构成统一的左轴。
+/// 单行 chrome（48pt）：系统红绿灯下移到本行视轴（WindowChrome，ContentView），
+/// 左缘为其让位 84pt；右缘与内容区同为 40，保持统一右轴。
 struct TopBarView: View {
 
     var searchFocused: FocusState<Bool>.Binding
@@ -31,8 +31,9 @@ struct TopBarView: View {
             addButton
             settingsButton
         }
-        .padding(.horizontal, 40)   // 与内容区 Theme.contentPadding 同轴（反馈：库页左缘须与顶栏对齐）
-        .frame(height: 60)
+        .padding(.leading, 84)    // 为同行的系统红绿灯让位（反馈：菜单须紧贴红绿灯）
+        .padding(.trailing, 40)   // 右缘与内容区 Theme.contentPadding 同轴
+        .frame(height: 48)        // 单行 chrome：内容中心 24pt ≈ 红绿灯可达视轴（21pt）
         .background(Theme.titlebar)
     }
 
