@@ -10,13 +10,19 @@ struct RatingStars: View {
     var body: some View {
         HStack(spacing: 3) {
             ForEach(1...5, id: \.self) { star in
-                Image(systemName: star <= rating ? "star.fill" : "star")
+                let filled = star <= rating
+                let starView = Image(systemName: filled ? "star.fill" : "star")
                     .font(.system(size: size))
-                    .foregroundStyle(star <= rating ? Theme.amber : Theme.ink3.opacity(0.5))
-                    .onTapGesture {
-                        // 再点一次当前星级 = 清零
-                        onRate?(star == rating ? 0 : star)
-                    }
+                    .foregroundStyle(filled ? Theme.amber : Theme.ink3.opacity(0.5))
+                if let onRate {
+                    // 可点态：扩大热区；再点一次当前星级 = 清零
+                    starView
+                        .contentShape(Rectangle().inset(by: -6))
+                        .onTapGesture { onRate(star == rating ? 0 : star) }
+                } else {
+                    // 只读态不挂任何手势
+                    starView
+                }
             }
         }
     }

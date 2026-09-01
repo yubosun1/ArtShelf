@@ -18,6 +18,15 @@ enum MediaType: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// 界面名（与顶部 Tab 名称一致）：片库 / 唱片 / 书架
+    var tabTitle: String {
+        switch self {
+        case .movie: return "片库"
+        case .music: return "唱片"
+        case .book:  return "书架"
+        }
+    }
+
     // MARK: - 状态文案
 
     var plannedLabel: String {
@@ -77,11 +86,13 @@ enum MediaType: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 
     /// 进度描述，如「61 分钟 / 98 分钟」「第 3 / 12 轨」「P.128 / 256」
+    /// current 超过 total 时（总量被改小）按 total 钳制展示；存储值不动，总量改回即恢复真实进度
     func progressText(current: Int, total: Int) -> String {
+        let shown = total > 0 ? min(current, total) : current
         switch self {
-        case .movie: return "\(current) 分钟 / \(total) 分钟"
-        case .music: return "第 \(current) / \(total) 轨"
-        case .book:  return "P.\(current) / \(total)"
+        case .movie: return "\(shown) 分钟 / \(total) 分钟"
+        case .music: return "第 \(shown) / \(total) 轨"
+        case .book:  return "P.\(shown) / \(total)"
         }
     }
 }

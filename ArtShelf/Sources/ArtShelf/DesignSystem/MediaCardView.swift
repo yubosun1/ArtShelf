@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 封面卡片：平铺封面 + 主色光晕 + 状态徽标 + 右键快捷维护
+/// 封面卡片：平铺封面 + 主色光晕 + 状态徽标 + 右键快捷维护（含就地手记浮层）
 ///
 /// 库页网格与「此刻」精选行共用。
 struct MediaCardView: View {
@@ -14,6 +14,9 @@ struct MediaCardView: View {
     @State private var hovered = false
     @State private var glowColor: Color?
     @State private var confirmDelete = false
+    @State private var notePopover = false
+    @State private var noteDraft = ""
+    @FocusState private var noteFocused: Bool
 
     private var height: CGFloat { width / item.type.coverAspectRatio }
 
@@ -29,18 +32,23 @@ struct MediaCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             CoverImageView(item: item) { glowColor = $0 }
                 .frame(width: width, height: height)
+                .overlay {
+                    // 概念稿 .card .cov::after: 底部微暗渐变，让封面更具厚重感
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.35)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+                }
                 .coverGlow(glowColor, scheme: scheme)
                 .overlay(alignment: .topTrailing) {
                     StatusBadge(status: item.status, type: item.type, text: badgeText)
                         .padding(9)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
                 .contentShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
                 .onHover { hovered = $0 }
-                .cardHoverLift(hovered, scheme: scheme)
-                .onTapGesture {
-                    store.markViewed(item)
-                    appState.openDetail(item)
-                }
+                .cardHoverLift(hovered)
 
             Text(item.title)
                 .font(Theme.cardTitle)
@@ -55,7 +63,15 @@ struct MediaCardView: View {
                 .padding(.top, 2)
         }
         .frame(width: width)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            store.markViewed(item)
+            appState.openDetail(item)
+        }
         .contextMenu { contextActions }
+        .popover(isPresented: $notePopover, arrowEdge: .top) {
+            quickNoteEditor
+        }
         .confirmationDialog("确定删除「\(item.title)」？", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("删除", role: .destructive) {
                 store.delete(item)
@@ -91,10 +107,69 @@ struct MediaCardView: View {
             Button("再看一遍") { store.replay(item) }
         }
         Button("记一笔") {
-            store.markViewed(item)
-            appState.openDetail(item)
+            // 等右键菜单收起后再弹浮层，避免 popover 在菜单收尾动画期间无法呈现
+            DispatchQueue.main.async { notePopover = true }
         }
         Divider()
         Button("删除…", role: .destructive) { confirmDelete = true }
+    }
+
+    /// 就地「记一笔」浮层：多行输入 + 「记下」按钮，提交即入库、不跳详情
+    ///（风格呼应详情页手记编辑器：well 底、rule 边、圆角 10 输入框 + panel 底面板）
+    private var quickNoteEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                if noteDraft.isEmpty {
+                    Text("记下此刻的感受…")
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.ink3)
+                        .padding(.top, 9)
+                        .padding(.leading, 11)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $noteDraft)
+                    .font(Theme.body)
+                    .scrollContentBackground(.hidden)
+                    .scrollIndicators(.hidden)
+                    .focused($noteFocused)
+                    .padding(6)
+                    .frame(width: 240, height: 66)
+                    .background(Theme.well)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Theme.rule, lineWidth: 1)
+                    )
+            }
+            HStack {
+                Spacer()
+                Button("记下") { commitQuickNote() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Theme.amber)
+                    .opacity(noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1)
+            }
+        }
+        .padding(16)
+        .background(Theme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous)
+                .strokeBorder(Theme.rule, lineWidth: 1)
+        )
+        .onAppear {
+            noteDraft = ""
+            // 浮层出现后聚焦输入框，省一次点击
+            DispatchQueue.main.async { noteFocused = true }
+        }
+    }
+
+    /// 提交就地手记：入库后收起浮层
+    private func commitQuickNote() {
+        let text = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        store.addNote(item, text: text)
+        noteDraft = ""
+        notePopover = false
     }
 }

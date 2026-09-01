@@ -2,9 +2,10 @@ import SwiftUI
 
 /// 库页：片库 / 唱片 / 书架三 Tab 共用的瀑布网格
 ///
-/// 顶部为库名 + 藏品计数，工具行依次为本页搜索框、状态筛选胶囊、排序菜单；
-/// 主体是自适应列宽的封面网格（最小列宽 158）。搜索 / 筛选 / 排序均为内存过滤
-/// （`typeRaw` 私有，不写 #Predicate）。空库时引导收录，筛选无结果时提示清除条件。
+/// 顶部为库名 + 藏品计数，工具行为状态筛选胶囊与排序菜单（本页搜索已移除，
+/// 检索统一走顶栏全局搜索）；主体是恒定列宽的封面网格：列宽 / 间距固定，列数随
+/// 容器宽度取整。筛选 / 排序均为内存过滤（`typeRaw` 私有，不写 #Predicate）。
+/// 空库时引导收录，筛选无结果时提示清除条件。
 struct LibraryView: View {
 
     let type: MediaType
@@ -12,9 +13,13 @@ struct LibraryView: View {
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
 
-    @State private var query = ""
     @State private var statusFilter: StatusFilter = .all
-    @State private var sortMode: SortMode = .smart
+    @State private var sortMode: SortMode = .dateAdded
+    /// 网格可用宽度（随窗口变化，驱动列数计算）
+    @State private var gridWidth: CGFloat = 0
+
+    /// 网格间距：比「此刻」精选行（rowSpacing 20）松一档，库页全量陈列需要更多呼吸
+    private static let gridSpacing: CGFloat = 24
 
     /// 库名：影视→片库 / 音乐→唱片 / 书籍→书架
     private var libraryTitle: String {
@@ -28,33 +33,33 @@ struct LibraryView: View {
     /// 当前类型的全部藏品（未排序）
     private var typed: [MediaItem] { store.items.filter { $0.type == type } }
 
-    /// 搜索 + 状态筛选 + 排序后的展示结果
+    /// 状态筛选 + 排序后的展示结果
     private var results: [MediaItem] {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        // 搜索字段口径复用全局检索逻辑，仅把范围收窄到当前类型
-        var xs = q.isEmpty ? typed : GlobalSearchView.filter(typed, query: q)
-        xs = xs.filter { statusFilter.matches($0.status) }
-        return sorted(xs)
+        sorted(typed.filter { statusFilter.matches($0.status) })
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
+                headerRow
                     .padding(.top, Theme.sectionSpacing)
-                    .padding(.bottom, 20)
-                toolRow
                     .padding(.bottom, 28)
                 content
             }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { width in
+                gridWidth = width
+            }
+            // 注意：测量必须在水平内边距之前，否则 gridWidth 会多算 80pt 导致列数高估、网格溢出
             .padding(.horizontal, Theme.contentPadding)
         }
         .scrollIndicators(.hidden)
     }
 
-    // MARK: - 顶部标题区
+    // MARK: - 标题行：库名 + 计数居左，筛选胶囊与排序菜单靠右同排
 
-    private var header: some View {
+    private var headerRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(libraryTitle)
                 .font(Theme.sectionTitle)
@@ -63,45 +68,10 @@ struct LibraryView: View {
                 .font(.system(size: 12, weight: .medium))
                 .tracking(0.8)
                 .foregroundStyle(Theme.ink3)
-        }
-    }
-
-    // MARK: - 工具行：搜索 / 状态筛选 / 排序
-
-    private var toolRow: some View {
-        HStack(spacing: 12) {
-            searchField
-            filterPills
             Spacer()
+            filterPills
             sortMenu
         }
-    }
-
-    /// 本页搜索框：只过滤当前类型
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.ink3)
-            TextField("搜索\(libraryTitle)…", text: $query)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.ink)
-            if !query.isEmpty {
-                Button {
-                    query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Theme.ink3)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 13)
-        .frame(height: 32)
-        .background(Theme.well)
-        .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(Theme.rule, lineWidth: 1))
     }
 
     /// 状态筛选胶囊：全部 / 进行中 / 已完成 / 待品味
@@ -124,7 +94,7 @@ struct LibraryView: View {
         }
     }
 
-    /// 排序菜单：智能权重 / 最近浏览 / 添加时间 / 标题 / 评分
+    /// 排序菜单：最近浏览 / 添加时间 / 标题 / 评分
     private var sortMenu: some View {
         Menu {
             Picker("排序方式", selection: $sortMode) {
@@ -161,16 +131,25 @@ struct LibraryView: View {
             emptyResults
         } else {
             LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: Theme.cardWidth), spacing: Theme.rowSpacing)],
-                spacing: Theme.rowSpacing
+                columns: gridColumns,
+                spacing: Self.gridSpacing
             ) {
                 ForEach(results) { item in
                     MediaCardView(item: item)
                 }
             }
+            // 钉住前导对齐：万一列数计算偏差导致网格超宽，也不会居中溢出两边被裁
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 4)   // 给悬停浮起留出余量
             .padding(.bottom, 44)
         }
+    }
+
+    /// 恒定列宽网格：列数 = max(1, ⌊(可用宽 + 间距) / (列宽 + 间距)⌋)，
+    /// 列宽与间距取 Theme 令牌，窗口缩放时仅列数变化、卡片尺寸恒定
+    private var gridColumns: [GridItem] {
+        let count = max(1, Int(floor((gridWidth + Self.gridSpacing) / (Theme.cardWidth + Self.gridSpacing))))
+        return Array(repeating: GridItem(.fixed(Theme.cardWidth), spacing: Self.gridSpacing), count: count)
     }
 
     /// 空库：引导收录第一件
@@ -200,17 +179,16 @@ struct LibraryView: View {
         .padding(.vertical, 64)
     }
 
-    /// 搜索 / 筛选无结果：一键清除条件
+    /// 筛选无结果：一键清除条件
     private var emptyResults: some View {
         VStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: "line.3.horizontal.decrease.circle")
                 .font(.system(size: 24, weight: .light))
                 .foregroundStyle(Theme.ink3)
-            Text("没有匹配的藏品")
+            Text("没有符合筛选条件的藏品")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Theme.ink2)
-            Button("清除搜索与筛选") {
-                query = ""
+            Button("清除筛选") {
                 statusFilter = .all
             }
             .font(Theme.control)
@@ -227,19 +205,6 @@ struct LibraryView: View {
     /// 按当前排序方式排序
     private func sorted(_ xs: [MediaItem]) -> [MediaItem] {
         switch sortMode {
-        case .smart:
-            // 智能权重：进行中优先（内部按最近品味倒序），
-            // 其余按评分降序，再按最近浏览 / 添加时间倒序
-            return xs.sorted { a, b in
-                let aDoing = a.status == .inProgress
-                let bDoing = b.status == .inProgress
-                if aDoing != bDoing { return aDoing }
-                if aDoing {
-                    return (a.lastTastedAt ?? .distantPast) > (b.lastTastedAt ?? .distantPast)
-                }
-                if a.rating != b.rating { return a.rating > b.rating }
-                return (a.lastViewedDate ?? a.dateAdded) > (b.lastViewedDate ?? b.dateAdded)
-            }
         case .recent:
             // 最近浏览：看过的按时间倒序，未看过的按添加时间倒序垫底
             return xs.sorted { a, b in
@@ -294,9 +259,8 @@ private enum StatusFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// 排序方式：智能权重 / 最近浏览 / 添加时间 / 标题 / 评分
+/// 排序方式：最近浏览 / 添加时间 / 标题 / 评分（默认添加时间）
 private enum SortMode: String, CaseIterable, Identifiable {
-    case smart
     case recent
     case dateAdded
     case title
@@ -306,7 +270,6 @@ private enum SortMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .smart:     return "智能权重"
         case .recent:    return "最近浏览"
         case .dateAdded: return "添加时间"
         case .title:     return "标题"

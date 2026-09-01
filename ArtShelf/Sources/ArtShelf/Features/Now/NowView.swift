@@ -147,7 +147,9 @@ struct MediaSectionRow: View {
                         }
                     }
                     .padding(.horizontal, Theme.contentPadding)
-                    .padding(.vertical, 4)
+                    // 概念稿 .row padding：上 4 防光晕裁切、底 18 留出卡后呼吸位
+                    .padding(.top, 4)
+                    .padding(.bottom, 18)
                 }
                 .scrollIndicators(.hidden)
             }
@@ -183,7 +185,7 @@ struct StatsStrip: View {
             divider
             stat(value: "\(inProgressCount)", unit: "件", label: "此刻进行中")
             divider
-            stat(value: "\(addedThisMonth)", unit: "件", label: "本月新增")
+            stat(value: "\(addedThisMonth)", unit: "件", label: "本月新增", badge: addedThisMonth > 0 ? "▲ \(addedThisMonth)" : nil)
             divider
             stat(value: "\(noteCount)", unit: "条", label: "策展笔记")
             divider
@@ -201,7 +203,7 @@ struct StatsStrip: View {
         .padding(.bottom, 34)
     }
 
-    private func stat(value: String, unit: String, label: String) -> some View {
+    private func stat(value: String, unit: String, label: String, badge: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
@@ -211,6 +213,12 @@ struct StatsStrip: View {
                     Text(unit)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Theme.ink3)
+                }
+                if let badge {
+                    Text(badge)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color(nsColor: .systemGreen))
+                        .padding(.leading, 3)
                 }
             }
             Text(label)

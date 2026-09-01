@@ -31,23 +31,64 @@ struct NowHeroView: View {
 
     // MARK: - 环境色渲染（封面主色虚化铺开）
 
+    // MARK: - 环境色渲染（封面主色虚化铺开）
+
     private var ambient: some View {
         ZStack {
-            // 封面自身放大模糊打底（无字版，避免文字虚化成鬼影）
+            // 封面自身超大虚化铺底
             CoverImageView(item: item, cornerRadius: 0, showsPlaceholderText: false)
-                .blur(radius: 90)
-                .opacity(0.55)
-            // 主色径向渲染
+                .scaledToFill()
+                .blur(radius: 100)
+                .opacity(0.40)
+
+            // 三层戏剧化径向渐变（完全对齐 Demo .hero .ambient：左中主色扩散、右下次色烘托、右上微光点缀）
             if let glowColor {
+                let primary = glowColor
+                let secondary = derivedSecondaryColor(from: glowColor)
+
+                // 1. 左侧大面积主色光团（22% 30%）
                 RadialGradient(
-                    colors: [glowColor.opacity(0.5), .clear],
-                    center: .init(x: 0.2, y: 0.3),
+                    colors: [primary.opacity(0.60), .clear],
+                    center: .init(x: 0.22, y: 0.30),
+                    startRadius: 30, endRadius: 600
+                )
+                // 2. 右下方深层冷暖对比次色（70% 110%）
+                RadialGradient(
+                    colors: [secondary.opacity(0.48), .clear],
+                    center: .init(x: 0.70, y: 1.05),
                     startRadius: 40, endRadius: 520
+                )
+                // 3. 右上方琥珀暖调微光（85% 10%）—— Demo signature: rgba(232,163,61,.16)
+                RadialGradient(
+                    colors: [Theme.amberBtn.opacity(0.22), .clear],
+                    center: .init(x: 0.85, y: 0.10),
+                    startRadius: 20, endRadius: 380
                 )
             }
         }
         .opacity(Theme.ambientOpacity(scheme))
+        // 底部向透明淡出：环境色在到达分隔线之前散尽，不硬切、不渗进下方分区
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .white, location: 0),
+                    .init(color: .white, location: 0.62),
+                    .init(color: .clear, location: 0.94)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
         .clipped()
+    }
+
+    /// 根据主色衍生互补/调和的暗调次级色，使暗房光影具有丰富的空间景深感
+    private func derivedSecondaryColor(from color: Color) -> Color {
+        let ns = NSColor(color)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let shiftedHue = fmod(h + 0.38, 1.0)
+        let secNS = NSColor(hue: shiftedHue, saturation: min(1.0, s * 0.9), brightness: max(0.25, b * 0.5), alpha: a)
+        return Color(nsColor: secNS)
     }
 
     // MARK: - 主舞台
@@ -55,8 +96,16 @@ struct NowHeroView: View {
     private var heroStage: some View {
         HStack(alignment: .bottom, spacing: 44) {
             CoverImageView(item: item, cornerRadius: 10) { glowColor = $0 }
-                .frame(width: 236, height: 354)
+                .frame(width: Theme.heroCoverSize.width, height: Theme.heroCoverSize.height)
                 .coverGlow(glowColor, scheme: scheme)
+                // 与藏品卡一致：点击封面进详情（并刷新最近浏览）
+                .onTapGesture {
+                    store.markViewed(item)
+                    appState.openDetail(item)
+                }
+                .onHover { hovering in
+                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
 
             VStack(alignment: .leading, spacing: 0) {
                 kicker
@@ -68,13 +117,15 @@ struct NowHeroView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.ink2)
                     .padding(.top, 8)
-                if !item.tags.isEmpty { tagRow.padding(.top, 18) }
+                if !item.tags.isEmpty { tagRow.padding(.top, 16) }
                 if let note = item.latestNote { quote(note.text).padding(.top, 18) }
-                if item.progressTotal > 0 { progressRow.padding(.top, 24) }
-                actionRow.padding(.top, 26)
+                progressRow.padding(.top, 22)
+                actionRow.padding(.top, 24)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 6)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var kicker: some View {
@@ -124,20 +175,35 @@ struct NowHeroView: View {
 
     private var progressRow: some View {
         HStack(spacing: 14) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.track)
-                    Capsule()
-                        .fill(LinearGradient(colors: [Theme.amberBtn, Theme.amberHi],
-                                             startPoint: .leading, endPoint: .trailing))
-                        .frame(width: geo.size.width * item.progress)
-                        .shadow(color: Theme.amberBtn.opacity(0.5), radius: 7)
+            if item.progressTotal > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.track)
+                        Capsule()
+                            .fill(LinearGradient(colors: [Theme.amberBtn, Theme.amberHi],
+                                                 startPoint: .leading, endPoint: .trailing))
+                            .frame(width: max(0, min(geo.size.width, geo.size.width * item.progress)))
+                            .shadow(color: Theme.amberBtn.opacity(0.5), radius: 7)
+                    }
                 }
+                .frame(width: 380, height: 5)
+                Text("\(item.progressText) · \(Int(item.progress * 100))%")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.amber)
+            } else {
+                // 未登记总量时，以微光胶囊展示品味状态，避免留出突兀空白断层
+                HStack(spacing: 6) {
+                    Circle().fill(Theme.amberBtn).frame(width: 6, height: 6)
+                    Text("持续品味中")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.ink2)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3.5)
+                .background(Theme.well)
+                .clipShape(Capsule())
+                .overlay(Capsule().strokeBorder(Theme.rule, lineWidth: 1))
             }
-            .frame(width: 380, height: 5)
-            Text("\(item.progressText) · \(Int(item.progress * 100))%")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.amber)
         }
     }
 
@@ -150,6 +216,8 @@ struct NowHeroView: View {
                     appleMusicURL: item.appleMusicURL,
                     type: item.type
                 )
+                // 唤起成功即刷新品味时间，驱动 Hero 与队列排序（§6）
+                store.markTasted(item)
             } label: {
                 Label(item.type.continueLabel, systemImage: "play.fill")
                     .font(.system(size: 13.5, weight: .bold))
@@ -163,7 +231,7 @@ struct NowHeroView: View {
             .buttonStyle(.plain)
 
             ghostButton("记一笔", systemImage: "square.and.pencil") {
-                appState.openDetail(item)
+                appState.openDetail(item, intent: .writeNote)
             }
             ghostButton("全部笔记", systemImage: "list.bullet") {
                 appState.openDetail(item)
@@ -171,6 +239,12 @@ struct NowHeroView: View {
 
             RatingStars(rating: item.rating, size: 13)
                 .padding(.leading, 4)
+            if item.rating > 0 {
+                Text(String(format: "%.1f", Double(item.rating)))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.ink3)
+                    .padding(.leading, 8)
+            }
         }
     }
 
@@ -191,68 +265,113 @@ struct NowHeroView: View {
     // MARK: - 进行中队列
 
     private var queueRow: some View {
-        HStack(spacing: 12) {
-            ForEach(queue.prefix(4)) { item in
-                queueCard(item)
-            }
-        }
-    }
-
-    private func queueCard(_ entry: MediaItem) -> some View {
-        Button {
-            store.markViewed(entry)
-            appState.openDetail(entry)
-        } label: {
-            HStack(spacing: 12) {
-                CoverImageView(item: entry, cornerRadius: 5)
-                    .frame(width: 40, height: 40 / entry.type.coverAspectRatio)
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 3)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.title)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                    Text(queueMeta(entry))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Theme.ink3)
-                        .lineLimit(1)
-                    if entry.progressTotal > 0 {
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Theme.track)
-                                Capsule().fill(Theme.amberBtn)
-                                    .frame(width: geo.size.width * entry.progress)
-                            }
+        // 对齐 Demo 四列等宽网格：≤4 张时卡片与空列均分宽度；多于 4 张时启用水平平滑滚动（固定 280 宽）
+        Group {
+            if queue.count <= 4 {
+                HStack(spacing: 12) {
+                    ForEach(queue) { entry in
+                        QueueCard(entry: entry)
+                    }
+                    if queue.count < 4 {
+                        ForEach(0 ..< (4 - queue.count), id: \.self) { _ in
+                            Spacer().frame(maxWidth: .infinity)
                         }
-                        .frame(height: 3)
-                        .padding(.top, 5)
                     }
                 }
-                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-                if entry.progressTotal > 0 {
-                    Text("\(Int(entry.progress * 100))%")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.amber)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 12) {
+                        ForEach(queue) { entry in
+                            QueueCard(entry: entry, width: 280)
+                        }
+                    }
                 }
+                .scrollIndicators(.hidden)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .background(Theme.panel)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Theme.rule, lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
     }
 
-    private func queueMeta(_ entry: MediaItem) -> String {
-        var parts = [entry.type.rawValue]
-        if let creator = entry.creator { parts.append(creator) }
-        if entry.progressTotal > 0 { parts.append(entry.progressText) }
-        return parts.joined(separator: " · ")
+    /// 进行中队列卡片：迷你封面 + 标题 / 元信息 / 进度，点击唤起详情并刷新品味时间
+    private struct QueueCard: View {
+
+        let entry: MediaItem
+        /// 固定宽（横滚队列用 280）；nil 时按四列网格弹性等宽
+        var width: CGFloat? = nil
+
+        @Environment(AppState.self) private var appState
+        @Environment(LibraryStore.self) private var store
+        @Environment(\.colorScheme) private var scheme
+        @State private var hovered = false
+
+        var body: some View {
+            Button {
+                store.markTasted(entry)
+                store.markViewed(entry)
+                appState.openDetail(entry)
+            } label: {
+                let coverSize = Theme.queueCoverSize(for: entry.type)
+                HStack(spacing: 12) {
+                    CoverImageView(item: entry, cornerRadius: 5)
+                        .frame(width: coverSize.width, height: coverSize.height)
+                        .shadow(color: .black.opacity(Theme.shadowAlpha(scheme)), radius: 4, y: 3)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.title)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                        Text(queueMeta)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Theme.ink3)
+                            .lineLimit(1)
+                        if entry.progressTotal > 0 {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Theme.track)
+                                    Capsule().fill(Theme.amberBtn)
+                                        .frame(width: geo.size.width * entry.progress)
+                                }
+                            }
+                            .frame(height: 3)
+                            .padding(.top, 4)
+                        }
+                    }
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    if entry.progressTotal > 0 {
+                        Text("\(Int(entry.progress * 100))%")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.amber)
+                    } else {
+                        Text("品味中")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Theme.ink3)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .frame(minWidth: width, maxWidth: width ?? .infinity)
+                .background(Theme.panel)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Theme.rule, lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            // 概念稿 .qitem:hover：上浮 2px
+            .onHover { hovered = $0 }
+            .offset(y: hovered ? -2 : 0)
+            .animation(.easeOut(duration: 0.18), value: hovered)
+        }
+
+        private var queueMeta: String {
+            var parts = [entry.type.tabTitle]
+            if let creator = entry.creator { parts.append(creator) }
+            if let year = entry.year { parts.append(String(year)) }
+            if entry.progressTotal > 0 {
+                parts.append(entry.progressText)
+            }
+            return parts.joined(separator: " · ")
+        }
     }
 }

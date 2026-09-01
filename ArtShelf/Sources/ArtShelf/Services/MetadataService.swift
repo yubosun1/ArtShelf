@@ -10,10 +10,13 @@ struct SearchResult: Identifiable, Sendable {
     let genre: String?       // 流派 / 类型（如 Drama · Thriller）
     let coverURL: String?
     let synopsis: String?
-    let webURL: String?
+    /// 资料页链接（豆瓣 / 维基 / TVMaze / 书店页，只读查阅；在线观看链接由用户手动补）
+    let referenceURL: String?
     let type: MediaType
     let albumName: String?
     let appleMusicURL: String?
+    /// 影视：剧集总集数（用于预填「按集」进度）；其他类型为 nil
+    let episodeCount: Int?
 }
 
 // MARK: - iTunes Search API 响应
@@ -88,6 +91,11 @@ private struct WikipediaPage: Decodable, Sendable {
     let thumbnail: WikipediaThumbnail?
     let extract: String?
     let fullurl: String?
+    let pageprops: WikipediaPageProps?
+}
+
+private struct WikipediaPageProps: Decodable, Sendable {
+    let wikibase_item: String?
 }
 
 private struct WikipediaThumbnail: Decodable, Sendable {
@@ -124,6 +132,68 @@ private struct TVMazeImage: Decodable, Sendable {
     let original: String?
 }
 
+// MARK: - 豆瓣 subject_suggest 响应（影视 / 书籍同一结构）
+
+/// 豆瓣公开联想接口（无需 API Key）：华语影视与书籍覆盖最好，
+/// 影视给标准 2:3 海报，书籍给作者 / 年份 / 封面。
+private struct DoubanSuggestItem: Decodable, Sendable {
+    let title: String
+    let year: String?
+    let img: String?        // 影视海报
+    let pic: String?        // 书籍封面
+    let url: String?
+    let id: String?
+    let episode: String?    // 影视集数
+    let author_name: String?  // 书籍作者
+}
+
+// MARK: - Wikidata 响应（补全导演 / 类型 / 日期）
+
+private struct WikidataEntitiesResponse: Decodable, Sendable {
+    let entities: [String: WikidataEntity]?
+}
+
+private struct WikidataEntity: Decodable, Sendable {
+    let claims: [String: [WikidataClaim]]?
+    let labels: [String: WikidataLabel]?
+}
+
+private struct WikidataClaim: Decodable, Sendable {
+    let mainsnak: WikidataSnak
+}
+
+private struct WikidataSnak: Decodable, Sendable {
+    let datavalue: WikidataDatavalue?
+}
+
+/// 值是多态的（实体 id / 时间 / 字符串…），字符串等非对象值宽容降级为空
+private struct WikidataDatavalue: Decodable, Sendable {
+    let value: Value?
+
+    struct Value: Decodable, Sendable {
+        let id: String?     // 实体型：{"id": "Q…"}
+        let time: String?   // 时间型：{"time": "+2007-01-08T00:00:00Z"}
+    }
+
+    private enum CodingKeys: String, CodingKey { case value }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        value = try? container.decode(Value.self, forKey: .value)
+    }
+}
+
+private struct WikidataLabel: Decodable, Sendable {
+    let value: String
+}
+
+/// 从 Wikidata 提炼出的影视事实字段
+private struct WikidataFacts: Sendable {
+    var director: String?
+    var genre: String?
+    var year: Int?
+}
+
 /// 元数据搜索服务
 final class MetadataService: Sendable {
 
@@ -134,7 +204,8 @@ final class MetadataService: Sendable {
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
+        // 8s 上限：个别源在用户网络下不可达（挂起到超时）时，不拖慢整体搜索
+        config.timeoutIntervalForRequest = 8
         return URLSession(configuration: config)
     }()
 
@@ -149,26 +220,38 @@ final class MetadataService: Sendable {
         }
     }
 
-    // MARK: - 影视搜索（电影 + 电视剧，合并结果）
+    // MARK: - 影视搜索（电影 + 电视剧，多源合并）
 
-    /// 电影走 Wikipedia（含海报），剧集走 TVMaze 与 Apple 的剧集目录。
+    /// 豆瓣（华语覆盖最好、标准 2:3 海报）+ Wikipedia（简介，经 Wikidata 补导演/类型/日期）
+    /// + Apple 剧集目录；TVMaze 华语覆盖薄、且部分网络不可达，中文查询跳过。
     ///
     /// 注意：iTunes 的 `media=movie` 已经下线，任何关键词都返回 0 条，
-    /// 所以这里不再请求它——电影海报改由 Wikipedia REST 的首图提供。
+    /// 所以这里不再请求它——电影海报改由豆瓣 / Wikipedia REST 的首图提供。
     private func searchMoviesAndTV(query: String) async -> [SearchResult] {
-        async let movies = searchWikipediaMovies(query: query)
-        async let tvMazeShows = searchTVMaze(query: query)
+        async let douban = searchDoubanMedia(query: query)
+        // 华语作品影剧难分：「电影」关键词会把剧集页挤出前列（实测），
+        // 中文查询并发跑「电视剧」「电影」两个关键词再合并；英文只用 film
+        async let wikiTV: [SearchResult] = query.containsCJK
+            ? searchWikipediaMovies(query: query, movieKeyword: "电视剧")
+            : searchWikipediaMovies(query: query, movieKeyword: "film")
+        async let wikiFilm: [SearchResult] = query.containsCJK
+            ? searchWikipediaMovies(query: query, movieKeyword: "电影")
+            : []
         async let appleTVShows = searchITunes(
             query: query,
             media: "tvShow",
             entity: "tvSeason",
             country: "us"
         )
+        // TVMaze 对中文关键词命中差且可能不可达（挂到超时），只用于非中文查询
+        async let tvMazeShows: [SearchResult] = query.containsCJK ? [] : searchTVMaze(query: query)
 
-        let combined = await (movies + tvMazeShows + appleTVShows).deduplicated()
+        // 源顺序即字段优先级：同名条目按序补缺合并
+        // （豆瓣封面/年份/链接 → Wikipedia 简介与 Wikidata 字段 → iTunes → TVMaze）
+        let sources = await [douban, wikiTV, wikiFilm, appleTVShows, tvMazeShows]
+        let combined = mergeByTitle(sources)
 
-        // 有海报的排前面——带图的条目更容易辨认。
-        // 手写分组而不用 sorted(by:)：后者不保证稳定，会打乱各组内的相关度顺序。
+        // 有海报的排前面——带图的条目更容易辨认
         let withCover = combined.filter { $0.coverURL != nil }
         let withoutCover = combined.filter { $0.coverURL == nil }
         return Array((withCover + withoutCover).prefix(30))
@@ -213,10 +296,11 @@ final class MetadataService: Sendable {
                     genre: result.primaryGenreName,
                     coverURL: result.highResArtwork,
                     synopsis: result.longDescription ?? result.shortDescription,
-                    webURL: result.trackViewUrl ?? result.collectionViewUrl,
+                    referenceURL: result.trackViewUrl ?? result.collectionViewUrl,
                     type: isMusic ? .music : .movie,
                     albumName: isMusic ? result.collectionName : nil,
-                    appleMusicURL: isMusic ? result.collectionViewUrl : nil
+                    appleMusicURL: isMusic ? result.collectionViewUrl : nil,
+                    episodeCount: nil
                 )
             }
         } catch {
@@ -227,9 +311,10 @@ final class MetadataService: Sendable {
 
     // MARK: - 电影搜索（Wikipedia，无需 API 密钥）
 
-    private func searchWikipediaMovies(query: String) async -> [SearchResult] {
+    /// `movieKeyword` 为消歧关键词（中文：电影 / 电视剧；英文：film），
+    /// 由调用方组合并发多个关键词以覆盖影剧两种形态
+    private func searchWikipediaMovies(query: String, movieKeyword: String) async -> [SearchResult] {
         let language = query.containsCJK ? "zh" : "en"
-        let movieKeyword = language == "zh" ? "电影" : "film"
         var components = URLComponents(string: "https://\(language).wikipedia.org/w/api.php")
         components?.queryItems = [
             URLQueryItem(name: "action", value: "query"),
@@ -237,7 +322,7 @@ final class MetadataService: Sendable {
             URLQueryItem(name: "gsrsearch", value: "\(query) \(movieKeyword)"),
             URLQueryItem(name: "gsrnamespace", value: "0"),
             URLQueryItem(name: "gsrlimit", value: "12"),
-            URLQueryItem(name: "prop", value: "pageimages|extracts|info"),
+            URLQueryItem(name: "prop", value: "pageimages|extracts|info|pageprops"),
             URLQueryItem(name: "piprop", value: "thumbnail"),
             URLQueryItem(name: "pithumbsize", value: "600"),
             URLQueryItem(name: "exintro", value: "1"),
@@ -266,7 +351,9 @@ final class MetadataService: Sendable {
                 .prefix(10)
 
             // 海报要单独取：见 WikipediaSummary 的说明。并发发起，逐条补齐。
-            return await withTaskGroup(of: (Int, SearchResult).self) { group in
+            var collected: [(Int, WikipediaPage, SearchResult)] = await withTaskGroup(
+                of: (Int, WikipediaPage, SearchResult).self
+            ) { group in
                 for (offset, page) in candidates.enumerated() {
                     group.addTask {
                         let poster = await self.wikipediaLeadImage(
@@ -277,31 +364,124 @@ final class MetadataService: Sendable {
                             title: page.title.removingWikipediaDisambiguation,
                             creator: nil,
                             year: self.extractYear(fromText: page.extract),
-                            genre: nil,  // Wikipedia 摘要没有流派字段，保持 nil
+                            genre: nil,  // Wikipedia 摘要没有流派字段，由 Wikidata 补全
                             coverURL: poster ?? page.thumbnail?.source,
                             synopsis: page.extract,
-                            webURL: page.fullurl,
+                            referenceURL: page.fullurl,
                             type: .movie,
                             albumName: nil,
-                            appleMusicURL: nil
+                            appleMusicURL: nil,
+                            episodeCount: nil
                         )
-                        return (offset, result)
+                        return (offset, page, result)
                     }
                 }
 
                 // 任务完成顺序不定，用原始下标还原搜索相关度排序。
-                var collected: [(Int, SearchResult)] = []
-                for await pair in group {
-                    collected.append(pair)
+                var pairs: [(Int, WikipediaPage, SearchResult)] = []
+                for await triple in group {
+                    pairs.append(triple)
                 }
-                return collected
-                    .sorted { $0.0 < $1.0 }
-                    .map(\.1)
+                return pairs.sorted { $0.0 < $1.0 }
             }
+
+            // Wikidata 补全导演 / 类型 / 日期（批量两次请求；失败静默降级）
+            let items = collected.compactMap { $0.1.pageprops?.wikibase_item }
+            if !items.isEmpty, let facts = try? await wikidataFacts(for: items) {
+                for index in collected.indices {
+                    guard let item = collected[index].1.pageprops?.wikibase_item,
+                          let fact = facts[item] else { continue }
+                    collected[index].2 = collected[index].2.filling(
+                        creator: fact.director,
+                        genre: fact.genre,
+                        year: fact.year
+                    )
+                }
+            }
+            return collected.map(\.2)
         } catch {
             logger.warning("Wikipedia 电影搜索失败: \(error.localizedDescription, privacy: .public)")
             return []
         }
+    }
+
+    /// 批量取 Wikidata 事实：一次 `wbgetentities?props=claims` 拿全部候选的声明，
+    /// 再一次 `props=labels` 解析实体标签，避免逐条目请求放大延迟。
+    private func wikidataFacts(for items: [String]) async throws -> [String: WikidataFacts] {
+        var claimComponents = URLComponents(string: "https://www.wikidata.org/w/api.php")
+        claimComponents?.queryItems = [
+            URLQueryItem(name: "action", value: "wbgetentities"),
+            URLQueryItem(name: "ids", value: items.joined(separator: "|")),
+            URLQueryItem(name: "props", value: "claims"),
+            URLQueryItem(name: "format", value: "json")
+        ]
+        guard let claimsURL = claimComponents?.url else { return [:] }
+        let claimsResp: WikidataEntitiesResponse = try await fetch(claimsURL)
+        guard let entities = claimsResp.entities else { return [:] }
+
+        // 收集需要解析标签的实体（P57 导演 / P136 类型）
+        var labelIDs = Set<String>()
+        for entity in entities.values {
+            for property in ["P57", "P136"] {
+                for claim in entity.claims?[property] ?? [] {
+                    if let id = claim.mainsnak.datavalue?.value?.id { labelIDs.insert(id) }
+                }
+            }
+        }
+
+        var labels: [String: String] = [:]
+        if !labelIDs.isEmpty {
+            var labelComponents = URLComponents(string: "https://www.wikidata.org/w/api.php")
+            labelComponents?.queryItems = [
+                URLQueryItem(name: "action", value: "wbgetentities"),
+                URLQueryItem(name: "ids", value: labelIDs.joined(separator: "|")),
+                URLQueryItem(name: "props", value: "labels"),
+                URLQueryItem(name: "languages", value: "zh|en"),
+                URLQueryItem(name: "format", value: "json")
+            ]
+            if let labelsURL = labelComponents?.url {
+                // 标签解析失败只损失导演/类型的显示名，不影响年份等其他字段
+                if let labelsResp: WikidataEntitiesResponse = try? await fetch(labelsURL) {
+                    for (id, entity) in labelsResp.entities ?? [:] {
+                        // 优先中文标签，无则英文
+                        labels[id] = entity.labels?["zh"]?.value ?? entity.labels?["en"]?.value
+                    }
+                }
+            }
+        }
+
+        var facts: [String: WikidataFacts] = [:]
+        for (item, entity) in entities {
+            var fact = WikidataFacts()
+
+            let directors = (entity.claims?["P57"] ?? [])
+                .compactMap { $0.mainsnak.datavalue?.value?.id }
+                .compactMap { labels[$0] }
+            if !directors.isEmpty {
+                fact.director = Array(directors.prefix(3)).joined(separator: "、")
+            }
+
+            let genres = (entity.claims?["P136"] ?? [])
+                .compactMap { $0.mainsnak.datavalue?.value?.id }
+                .compactMap { labels[$0] }
+            if !genres.isEmpty {
+                fact.genre = Array(genres.prefix(3)).joined(separator: " · ")
+            }
+
+            if let time = entity.claims?["P577"]?.first?.mainsnak.datavalue?.value?.time {
+                fact.year = extractYear(fromWikidataTime: time)
+            }
+            facts[item] = fact
+        }
+        return facts
+    }
+
+    /// Wikidata 时间形如 `+2007-01-08T00:00:00Z`，取年份
+    private func extractYear(fromWikidataTime time: String) -> Int? {
+        guard time.hasPrefix("+") else { return nil }
+        let start = time.index(after: time.startIndex)
+        guard let end = time.firstIndex(of: "-"), end > start else { return nil }
+        return Int(time[start..<end])
     }
 
     /// 取条目首图（海报）。失败就返回 nil，让调用方回退到别的来源。
@@ -336,10 +516,11 @@ final class MetadataService: Sendable {
                     genre: show.genres.isEmpty ? nil : show.genres.joined(separator: " · "),
                     coverURL: show.image?.original ?? show.image?.medium,
                     synopsis: show.summary?.strippingHTML,
-                    webURL: show.url,
+                    referenceURL: show.url,
                     type: .movie,
                     albumName: nil,
-                    appleMusicURL: nil
+                    appleMusicURL: nil,
+                    episodeCount: nil
                 )
             }
         } catch {
@@ -348,9 +529,80 @@ final class MetadataService: Sendable {
         }
     }
 
-    // MARK: - 书籍搜索（Google Books API）
+    // MARK: - 豆瓣联想搜索（影视 / 书籍，无需 API 密钥）
 
+    /// 影视：华语内容覆盖最好，直接给标准 2:3 海报、年份、集数与条目链接
+    private func searchDoubanMedia(query: String) async -> [SearchResult] {
+        await searchDoubanSuggest(host: "movie.douban.com", query: query) { item in
+            SearchResult(
+                title: item.title,
+                creator: nil,
+                year: item.year.flatMap(Int.init),
+                genre: nil,
+                // s_ratio_poster 小图 → m_ratio_poster 中图（实测存在且清晰得多）
+                coverURL: item.img?.replacingOccurrences(of: "s_ratio_poster", with: "m_ratio_poster"),
+                // 简介留空让给 Wikipedia 摘要（合并时只补空缺字段）；集数用于预填「按集」进度
+                synopsis: nil,
+                referenceURL: item.url?.removingQueryString,
+                type: .movie,
+                albumName: nil,
+                appleMusicURL: nil,
+                // 豆瓣「集数」字段：电影通常是 1，剧集为实际集数；>1 才作为剧集总量
+                episodeCount: item.episode.flatMap(Int.init).flatMap { $0 > 1 ? $0 : nil }
+            )
+        }
+    }
+
+    /// 书籍：标题 + 作者 + 年份 + 封面，正好覆盖「搜到基本信息、本地再补文件」的流程
+    private func searchDoubanBooks(query: String) async -> [SearchResult] {
+        await searchDoubanSuggest(host: "book.douban.com", query: query) { item in
+            SearchResult(
+                title: item.title,
+                creator: item.author_name,
+                year: item.year.flatMap(Int.init),
+                genre: nil,
+                // 书籍封面小图 /view/subject/s/public/ → 大图 /l/public/
+                coverURL: item.pic?.replacingOccurrences(of: "/view/subject/s/public/", with: "/view/subject/l/public/"),
+                synopsis: nil,
+                referenceURL: item.url?.removingQueryString,
+                type: .book,
+                albumName: nil,
+                appleMusicURL: nil,
+                episodeCount: nil
+            )
+        }
+    }
+
+    /// `subject_suggest` 公共请求：movie/book 两个子站同一接口同一结构
+    private func searchDoubanSuggest(
+        host: String,
+        query: String,
+        map: (DoubanSuggestItem) -> SearchResult
+    ) async -> [SearchResult] {
+        var components = URLComponents(string: "https://\(host)/j/subject_suggest")
+        components?.queryItems = [URLQueryItem(name: "q", value: query)]
+        guard let url = components?.url else { return [] }
+
+        do {
+            let response: [DoubanSuggestItem] = try await fetch(url)
+            return response.prefix(12).map(map)
+        } catch {
+            logger.warning("豆瓣联想搜索失败 [\(host, privacy: .public)]: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    // MARK: - 书籍搜索（豆瓣 + Google Books 合并）
+
+    /// 豆瓣优先（华语书籍覆盖好、本网络可达）；Google Books 兜底非中文与海外网络。
     private func searchBooks(query: String) async -> [SearchResult] {
+        async let douban = searchDoubanBooks(query: query)
+        async let google = searchGoogleBooks(query: query)
+        let sources = await [douban, google]
+        return Array(mergeByTitle(sources).prefix(30))
+    }
+
+    private func searchGoogleBooks(query: String) async -> [SearchResult] {
         let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let urlString = "https://www.googleapis.com/books/v1/volumes?q=\(encoded)&maxResults=20"
         guard let url = URL(string: urlString) else { return [] }
@@ -370,10 +622,11 @@ final class MetadataService: Sendable {
                     genre: nil,
                     coverURL: coverURL,
                     synopsis: info.description,
-                    webURL: info.previewLink ?? info.infoLink,
+                    referenceURL: info.previewLink ?? info.infoLink,
                     type: .book,
                     albumName: nil,
-                    appleMusicURL: nil
+                    appleMusicURL: nil,
+                    episodeCount: nil
                 )
             }
         } catch {
@@ -383,6 +636,27 @@ final class MetadataService: Sendable {
     }
 
     // MARK: - 工具
+
+    /// 同名条目跨源合并：sources 顺序即字段优先级，
+    /// 先见结果为准、后续来源只补空缺字段（封面 / 简介 / 导演 / 类型 / 年份 / 链接各取所长）
+    private func mergeByTitle(_ sources: [[SearchResult]]) -> [SearchResult] {
+        var order: [String] = []
+        var merged: [String: SearchResult] = [:]
+        for source in sources {
+            for result in source {
+                let key = result.title
+                    .lowercased()
+                    .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+                if let existing = merged[key] {
+                    merged[key] = existing.filling(from: result)
+                } else {
+                    merged[key] = result
+                    order.append(key)
+                }
+            }
+        }
+        return order.compactMap { merged[$0] }
+    }
 
     private func extractYear(from dateString: String?) -> Int? {
         guard let s = dateString, s.count >= 4,
@@ -400,7 +674,7 @@ final class MetadataService: Sendable {
 
     private func fetch<Response: Decodable>(_ url: URL) async throws -> Response {
         var request = URLRequest(url: url)
-        request.setValue("ArtShelf/1.3 (macOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ArtShelf/3.0 (macOS)", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode) else {
@@ -410,17 +684,49 @@ final class MetadataService: Sendable {
     }
 }
 
-// MARK: - 去重
+// MARK: - 多源合并
 
-private extension Array where Element == SearchResult {
-    func deduplicated() -> [SearchResult] {
-        var seen = Set<String>()
-        return filter { result in
-            let key = result.title.lowercased() + "|" + (result.creator ?? "").lowercased()
-            if seen.contains(key) { return false }
-            seen.insert(key)
-            return true
-        }
+private extension SearchResult {
+    /// 复制并仅补空缺字段（已有值不被覆盖）
+    func filling(creator: String? = nil, genre: String? = nil, year: Int? = nil) -> SearchResult {
+        SearchResult(
+            title: title,
+            creator: self.creator ?? creator,
+            year: self.year ?? year,
+            genre: self.genre ?? genre,
+            coverURL: coverURL,
+            synopsis: synopsis,
+            referenceURL: referenceURL,
+            type: type,
+            albumName: albumName,
+            appleMusicURL: appleMusicURL,
+            episodeCount: episodeCount
+        )
+    }
+
+    /// 逐字段取先见非空值补全
+    func filling(from other: SearchResult) -> SearchResult {
+        SearchResult(
+            title: title,
+            creator: creator ?? other.creator,
+            year: year ?? other.year,
+            genre: genre ?? other.genre,
+            coverURL: coverURL ?? other.coverURL,
+            synopsis: synopsis ?? other.synopsis,
+            referenceURL: referenceURL ?? other.referenceURL,
+            type: type,
+            albumName: albumName ?? other.albumName,
+            appleMusicURL: appleMusicURL ?? other.appleMusicURL,
+            episodeCount: episodeCount ?? other.episodeCount
+        )
+    }
+}
+
+private extension String {
+    /// 去掉 URL 的 query 串（豆瓣联想链接带 ?suggest= 尾巴，入库前清理）
+    var removingQueryString: String {
+        guard let index = firstIndex(of: "?") else { return self }
+        return String(self[..<index])
     }
 }
 

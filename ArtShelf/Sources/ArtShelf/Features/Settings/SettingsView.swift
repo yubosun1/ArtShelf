@@ -9,6 +9,8 @@ struct SettingsView: View {
     @Environment(LibraryStore.self) private var store
     /// 导入结果提示文案（nil 时隐藏）
     @State private var importMessage: String?
+    /// 导出结果提示文案（nil 时隐藏）
+    @State private var exportMessage: String?
 
     var body: some View {
         ScrollView {
@@ -22,6 +24,7 @@ struct SettingsView: View {
         }
         .frame(width: 500, height: 620)
         .scrollIndicators(.hidden)
+        .background(Theme.bg)
     }
 
     // MARK: - 分区外壳
@@ -107,11 +110,16 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
                     actionButton("导出 JSON…", systemImage: "square.and.arrow.up") {
-                        LibraryIO.exportLibrary(store: store)
+                        performExport()
                     }
                     actionButton("从 JSON 导入…", systemImage: "square.and.arrow.down") {
                         performImport()
                     }
+                }
+                if let message = exportMessage {
+                    Text(message)
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.ink2)
                 }
                 if let message = importMessage {
                     Text(message)
@@ -122,10 +130,26 @@ struct SettingsView: View {
         }
     }
 
+    /// 导出 JSON 并展示结果提示（成功/取消保持静默，仅失败提示）
+    private func performExport() {
+        switch LibraryIO.exportLibrary(store: store) {
+        case .exported, .cancelled:
+            exportMessage = nil
+        case .failed(let reason):
+            exportMessage = "导出失败：\(reason)"
+        }
+    }
+
     /// 导入 JSON 并展示结果提示
     private func performImport() {
-        let count = LibraryIO.importLibrary(store: store)
-        importMessage = count > 0 ? "已导入 \(count) 件藏品" : "未导入新条目（已取消或全部已存在）"
+        switch LibraryIO.importLibrary(store: store) {
+        case .imported(let count):
+            importMessage = count > 0 ? "已导入 \(count) 件藏品" : "未导入新条目（文件为空或条目均已存在）"
+        case .cancelled:
+            importMessage = nil
+        case .failed(let reason):
+            importMessage = "导入失败：\(reason)"
+        }
     }
 
     // MARK: - 存储
@@ -161,7 +185,7 @@ struct SettingsView: View {
                     Text("ArtShelf")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Theme.ink)
-                    Text("3.0.0 · macOS 14+ · 100% 本地优先")
+                    Text("\(appVersion) · macOS 14+ · 100% 本地优先")
                         .font(Theme.body)
                         .foregroundStyle(Theme.ink3)
                 }
@@ -169,18 +193,16 @@ struct SettingsView: View {
         }
     }
 
+    /// 版本号单一来源：取 Info.plist 的 CFBundleShortVersionString，读不到时兜底
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0.0"
+    }
+
     /// 品牌棱镜标（与顶栏一致）
     private var prismLogo: some View {
         RoundedRectangle(cornerRadius: 5, style: .continuous)
             .fill(AngularGradient(
-                colors: [
-                    Color(red: 0.36, green: 0.51, blue: 0.96),
-                    Color(red: 0.60, green: 0.36, blue: 0.96),
-                    Color(red: 0.91, green: 0.36, blue: 0.61),
-                    Color(red: 0.91, green: 0.64, blue: 0.24),
-                    Color(red: 0.26, green: 0.71, blue: 0.51),
-                    Color(red: 0.36, green: 0.51, blue: 0.96)
-                ],
+                colors: Theme.prismColors,
                 center: .center
             ))
             .frame(width: 22, height: 22)

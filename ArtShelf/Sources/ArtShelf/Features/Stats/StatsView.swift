@@ -140,14 +140,12 @@ struct StatsView: View {
         }
     }
 
-    /// 三类代表色：影视蓝 #5B82F6 / 音乐琥珀 / 书籍绿 #43B581。
-    /// 影视与书籍色取自 v3 概念稿调色板，未收录进 Theme 令牌，仅此两处定点（硬编码）标注；
-    /// 页面其余颜色一律走 Theme 令牌，不散落硬编码色值。
+    /// 三类代表色：影视蓝 / 音乐琥珀 / 书籍绿（Theme 类型色令牌）
     private func typeColor(_ type: MediaType) -> Color {
         switch type {
-        case .movie: return Color(red: 0x5B / 255.0, green: 0x82 / 255.0, blue: 0xF6 / 255.0)
-        case .music: return Theme.amber
-        case .book:  return Color(red: 0x43 / 255.0, green: 0xB5 / 255.0, blue: 0x81 / 255.0)
+        case .movie: return Theme.typeMovie
+        case .music: return Theme.typeMusic
+        case .book:  return Theme.typeBook
         }
     }
 

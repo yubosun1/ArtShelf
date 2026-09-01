@@ -5,6 +5,7 @@ struct GlobalSearchView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
 
     private var results: [MediaItem] {
         Array(Self.filter(store.items, query: appState.searchText).prefix(8))
@@ -33,7 +34,8 @@ struct GlobalSearchView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Theme.rule, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
+        // 投影强度并入 Theme 标量体系（随深浅外观变化）
+        .shadow(color: .black.opacity(Theme.shadowAlpha(colorScheme)), radius: 24, y: 10)
     }
 
     private func row(for item: MediaItem) -> some View {

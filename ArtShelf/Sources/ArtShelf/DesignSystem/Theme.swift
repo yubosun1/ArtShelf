@@ -58,6 +58,23 @@ enum Theme {
         }
     }
 
+    // MARK: - 品牌棱镜与类型代表色
+
+    /// 品牌棱镜渐变六色（顶栏 / 设置 Logo，与概念稿 conic-gradient 一致）
+    static let prismColors: [Color] = [
+        Color(nsColor: hex(0x5B82F6)),
+        Color(nsColor: hex(0x9A5BF6)),
+        Color(nsColor: hex(0xE85B9B)),
+        Color(nsColor: hex(0xE8A33D)),
+        Color(nsColor: hex(0x43B581)),
+        Color(nsColor: hex(0x5B82F6))
+    ]
+
+    /// 类型代表色（概念稿调色板，深浅一致）：影视蓝 / 音乐琥珀 / 书籍绿
+    static let typeMovie = Color(nsColor: hex(0x5B82F6))
+    static let typeMusic = Color(nsColor: hex(0xE8A33D))
+    static let typeBook = Color(nsColor: hex(0x43B581))
+
     // MARK: - 光效强度（随外观变化的标量）
 
     /// 封面主色光晕透明度
@@ -67,19 +84,44 @@ enum Theme {
     /// Hero 环境渲染不透明度
     static func ambientOpacity(_ scheme: ColorScheme) -> Double { scheme == .dark ? 1.0 : 0.5 }
 
-    // MARK: - 结构尺寸
+    // MARK: - 结构尺寸（§5.4）
 
     static let contentPadding: CGFloat = 40
     static let sectionSpacing: CGFloat = 34
+    static let rowSpacing: CGFloat = 20
+
+    /// 卡片封面（影视 / 书籍 2:3 → 158×237；音乐方形 1:1 → 158×158）
     static let cardWidth: CGFloat = 158
+    static let cardPosterHeight: CGFloat = 237
+    static let cardSquareSide: CGFloat = 158
+
+    /// Hero 大封面 236×354
+    static let heroCoverSize = CGSize(width: 236, height: 354)
+    /// 队列迷你封面 40×56（音乐方形 40×40）
+    static let queueCoverWidth: CGFloat = 40
+    static let queueCoverHeight: CGFloat = 56
+
     static let cardCorner: CGFloat = 8
     static let panelCorner: CGFloat = 12
-    static let rowSpacing: CGFloat = 20
+
+    /// 卡片封面尺寸（按类型宽高比取 2:3 / 1:1）
+    static func cardCoverSize(for type: MediaType) -> CGSize {
+        type.coverAspectRatio == 1
+            ? CGSize(width: cardWidth, height: cardSquareSide)
+            : CGSize(width: cardWidth, height: cardPosterHeight)
+    }
+
+    /// 队列迷你封面尺寸（2:3 → 40×56，方形 → 40×40）
+    static func queueCoverSize(for type: MediaType) -> CGSize {
+        type.coverAspectRatio == 1
+            ? CGSize(width: queueCoverWidth, height: queueCoverWidth)
+            : CGSize(width: queueCoverWidth, height: queueCoverHeight)
+    }
 
     // MARK: - 字体层次
 
     static let heroTitle = Font.system(size: 44, weight: .heavy)
-    static let sectionTitle = Font.system(size: 19, weight: .bold)
+    static let sectionTitle = Font.system(size: 19, weight: .heavy)
     static let cardTitle = Font.system(size: 12.5, weight: .semibold)
     static let cardMeta = Font.system(size: 10.5)
     static let body = Font.system(size: 13)
@@ -115,20 +157,27 @@ enum Theme {
 // MARK: - 通用修饰符
 
 extension View {
-    /// 卡片悬停微浮起（上浮 + 加深投影）
-    func cardHoverLift(_ isHovered: Bool, scheme: ColorScheme) -> some View {
+    /// 卡片悬停微浮起（上浮 + 呼吸感微放大）
+    func cardHoverLift(_ isHovered: Bool) -> some View {
         self
             .offset(y: isHovered ? -6 : 0)
-            .scaleEffect(isHovered ? 1.015 : 1)
-            .animation(.easeOut(duration: 0.2), value: isHovered)
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.76), value: isHovered)
     }
 
     /// 封面主色光晕：以封面主色投下大面积色晕，强度随外观
+    /// 半径口径对齐概念稿（0 18px 44px 主色晕 + 0 6px 14px 黑投影）
     func coverGlow(_ color: Color?, scheme: ColorScheme, radius: CGFloat = 44) -> some View {
-        self.shadow(
-            color: (color ?? .clear).opacity(Theme.glowAlpha(scheme)),
-            radius: radius / 2, x: 0, y: 18
-        )
-        .shadow(color: .black.opacity(Theme.shadowAlpha(scheme)), radius: 7, x: 0, y: 6)
+        let alpha = Theme.glowAlpha(scheme)
+        return self
+            .shadow(
+                color: (color ?? Theme.amberBtn).opacity(alpha),
+                radius: radius, x: 0, y: 18
+            )
+            .shadow(
+                color: (color ?? Theme.amberBtn).opacity(alpha * 0.5),
+                radius: radius * 0.45, x: 0, y: 8
+            )
+            .shadow(color: .black.opacity(Theme.shadowAlpha(scheme)), radius: 14, x: 0, y: 6)
     }
 }

@@ -16,6 +16,7 @@ struct StatusBadge: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(colors.bg)
+            .background(.ultraThinMaterial)   // 毛玻璃背衬（概念稿 .st 的 backdrop-filter: blur(6px)）
             .foregroundStyle(colors.tx)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }

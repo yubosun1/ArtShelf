@@ -79,28 +79,21 @@ final class LinkMetadataService: Sendable {
     /// 提取 `<meta property="og:xxx" content="...">` 或
     /// `<meta name="og:xxx" content="...">` 的 content 值
     private func ogValue(property: String, in html: String) -> String? {
-        // 两种常见写法：property= 与 name=
+        // 两种常见写法：property= 与 name=；属性值兼容双引号 / 单引号
         for attr in ["property", "name"] {
-            // <meta ... property="og:title" ...> —— 属性可能在 content 前后
-            if let value = metaContent(attr: attr, attrValue: property, in: html) {
-                return value
-            }
-            // 也兼容没有引号的写法
-            if let value = metaContent(attr: attr, attrValue: "\"\(property)", in: html, quotedAttr: false) {
-                return value
+            for quote in ["\"", "'"] {
+                // <meta ... property="og:title" ...> —— 属性可能在 content 前后
+                if let value = metaContent(attr: attr, attrValue: property, quote: quote, in: html) {
+                    return value
+                }
             }
         }
         return nil
     }
 
-    /// 在 `<meta ...>` 标签中，先定位 attr=attrValue，再取出同一标签内 content="..."
-    private func metaContent(attr: String, attrValue: String, in html: String, quotedAttr: Bool = true) -> String? {
-        let pattern: String
-        if quotedAttr {
-            pattern = "\(attr)=\"\(attrValue)\""
-        } else {
-            pattern = "\(attr)=\(attrValue)"
-        }
+    /// 在 `<meta ...>` 标签中，先定位 attr=quote+attrValue+quote，再取出同一标签内 content="..."
+    private func metaContent(attr: String, attrValue: String, quote: String, in html: String) -> String? {
+        let pattern = "\(attr)=\(quote)\(attrValue)\(quote)"
 
         var searchRange = html.startIndex..<html.endIndex
         while let matchRange = html.range(of: pattern, options: .caseInsensitive, range: searchRange) {

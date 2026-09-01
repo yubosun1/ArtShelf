@@ -14,9 +14,12 @@ final class EPUBService: Sendable {
 
     // MARK: - 异步提取（主线程调用）
 
+    /// 异步提取（主线程调用）。
+    /// 用结构化子任务替代 Task.detached：子任务继承父任务取消状态，
+    /// 父任务取消后 extractCover 在关键节点检查 Task.isCancelled 放弃，不再继续解压写盘。
     func extractCoverAsync(from epubPath: String) async -> String? {
-        await Task.detached(priority: .userInitiated) {
-            return self.extractCover(from: epubPath)
+        await Task(priority: .userInitiated) {
+            self.extractCover(from: epubPath)
         }.value
     }
 
@@ -28,6 +31,9 @@ final class EPUBService: Sendable {
             return nil
         }
 
+        // 关键节点检查取消：父任务取消后立即放弃，不继续解压写盘
+        if Task.isCancelled { return nil }
+
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArtShelfEPUB_\(UUID().uuidString)")
 
@@ -37,6 +43,8 @@ final class EPUBService: Sendable {
             return nil
         }
         defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        if Task.isCancelled { return nil }
 
         guard let coverRelativePath = findCoverImagePath(in: tempDir) else {
             Self.logger.error("未能在 EPUB 中定位封面图: \(epubPath, privacy: .public)")
@@ -54,16 +62,24 @@ final class EPUBService: Sendable {
             return nil
         }
 
+        if Task.isCancelled { return nil }
+
         let ext = coverURL.pathExtension.isEmpty ? "jpg" : coverURL.pathExtension
         let coverFile = LibraryPaths.coversDirectory
             .appendingPathComponent("\(UUID().uuidString).\(ext)")
         do {
             try imageData.write(to: coverFile)
-            return coverFile.path
         } catch {
             Self.logger.error("保存 EPUB 封面失败: \(error, privacy: .public)")
             return nil
         }
+
+        // 写盘后若任务已被取消：清理刚写出的封面，避免留下孤儿文件
+        if Task.isCancelled {
+            try? FileManager.default.removeItem(at: coverFile)
+            return nil
+        }
+        return coverFile.path
     }
 
     // MARK: - 解压
@@ -84,9 +100,14 @@ final class EPUBService: Sendable {
         do {
             try process.run()
 
-            // 轮询等待，30 秒超时
+            // 轮询等待，30 秒超时；父任务取消时提前终止解压进程，尽早停止写盘
             let deadline = Date().addingTimeInterval(30)
             while process.isRunning && Date() < deadline {
+                if Task.isCancelled {
+                    process.terminate()
+                    Thread.sleep(forTimeInterval: 0.5)
+                    return false
+                }
                 Thread.sleep(forTimeInterval: 0.2)
             }
 
@@ -228,9 +249,10 @@ final class EPUBService: Sendable {
     // MARK: - Swift 原生 XML 解析工具
 
     /// 从 XML 字符串中提取指定属性的值（使用 Swift 原生字符串匹配，避免 Obj-C 异常）
+    /// 兼容双引号与单引号两种写法（部分 EPUB 的 OPF 文件使用单引号）
     private func extractAttribute(from xml: String, attribute: String) -> String? {
-        // 查找 attribute="value" 模式
-        let pattern = "\(attribute)=\""
+        // 查找 attribute= 后跟引号包裹的值
+        let pattern = "\(attribute)="
         guard let patternRange = xml.range(of: pattern, options: .caseInsensitive) else {
             return nil
         }
@@ -238,12 +260,18 @@ final class EPUBService: Sendable {
         let valueStart = patternRange.upperBound
         let remaining = xml[valueStart...]
 
-        // 找到下一个双引号
-        guard let endQuote = remaining.firstIndex(of: "\"") else {
+        // XML 属性必须带引号（双引号或单引号均可）
+        guard let quote = remaining.first, quote == "\"" || quote == "'" else {
             return nil
         }
 
-        return String(xml[valueStart..<endQuote])
+        // 找到与开头配对的闭合引号
+        let afterQuote = remaining.index(after: remaining.startIndex)
+        guard let endQuote = remaining[afterQuote...].firstIndex(of: quote) else {
+            return nil
+        }
+
+        return String(remaining[afterQuote..<endQuote])
     }
 
     /// 提取所有指定标签名的标签（包括自闭合和非自闭合）

@@ -32,11 +32,11 @@ enum PreviewRenderer {
             appState.tab = tab
             render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: name)
         }
-        // 详情整版（深色）
+        // 详情整版（深色）：用按集进度的剧集，高度加大以覆盖完整右栏
         appState.tab = .now
-        if let hero = store.items.first(where: { $0.title == "花样年华" }) {
+        if let hero = store.items.first(where: { $0.title == "大明王朝1566" }) {
             appState.openDetail(hero)
-            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "7-detail-dark")
+            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "7-detail-dark", height: 1300)
         }
 
         print("预览已渲染到 \(out.path)")
@@ -51,18 +51,19 @@ enum PreviewRenderer {
         appState: AppState,
         appearance: NSAppearance,
         to dir: URL,
-        name: String
+        name: String,
+        height: CGFloat = 820
     ) {
         let root = view
             .environment(appState)
             .environment(store)
-            .frame(width: 1240, height: 820)
+            .frame(width: 1240, height: height)
             .background(Theme.bg)   // 与 ArtShelfApp 一致的画布底色
         let hosting = NSHostingView(rootView: root)
 
         // 窗口移到屏幕外再 order in——对用户不可见，但视图树获得完整 backing 可渲染
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1240, height: 820),
+            contentRect: NSRect(x: 0, y: 0, width: 1240, height: height),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
@@ -72,9 +73,9 @@ enum PreviewRenderer {
         window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
         window.orderBack(nil)
 
-        // 跑两个 runloop 周期，让布局与异步渲染完成
+        // 跑若干 runloop 周期，让布局、.task 本地状态同步与异步渲染完成
         hosting.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+        RunLoop.main.run(until: Date().addingTimeInterval(1.0))
         hosting.layoutSubtreeIfNeeded()
 
         if let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) {
@@ -96,7 +97,8 @@ enum PreviewRenderer {
             creator: String? = nil, year: Int? = nil, rating: Int = 0,
             current: Int = 0, total: Int = 0, tags: [String] = [],
             genre: String? = nil, note: String? = nil, replay: Int = 0,
-            tastedOffset: TimeInterval? = nil
+            tastedOffset: TimeInterval? = nil, unit: ProgressUnit? = nil,
+            watch: String? = nil, reference: String? = nil
         ) -> MediaItem {
             var item = MediaItem(title: title, type: type)
             item.creator = creator
@@ -105,6 +107,9 @@ enum PreviewRenderer {
             item.status = status
             item.progressCurrent = current
             item.progressTotal = total
+            item.progressUnit = unit
+            item.webURL = watch
+            item.referenceURL = reference
             item.tags = tags
             item.genre = genre
             item.replayCount = replay
@@ -123,6 +128,13 @@ enum PreviewRenderer {
              current: 61, total: 98, tags: ["港片", "王家卫", "二刷清单"], genre: "剧情 / 爱情",
              note: "走廊里那盏灯、云吞面蒸起的热气，和所有没说出口的话。梅林茂的弦乐一起，时间就退回了那个年代。",
              replay: 2, tastedOffset: 0)
+        // 剧集：按集计进度（预览详情页单位切换与「第 X / Y 集」文案）
+        make("大明王朝1566", .movie, status: .inProgress, creator: "张黎", year: 2007, rating: 5,
+             current: 22, total: 46, tags: ["历史"], genre: "古装剧 · 历史片",
+             note: "改稻为桑，一盘棋下出了整个王朝的困局。",
+             tastedOffset: -60, unit: .episodes,
+             watch: "https://www.bilibili.com/bangumi/play/example",
+             reference: "https://movie.douban.com/subject/2210001/")
         make("星际穿越", .movie, status: .inProgress, creator: "诺兰", year: 2014,
              current: 105, total: 169, tastedOffset: -7200)
         make("布达佩斯大饭店", .movie, status: .completed, creator: "韦斯·安德森", year: 2014, rating: 4)

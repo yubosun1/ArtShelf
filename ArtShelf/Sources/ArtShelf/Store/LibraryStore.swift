@@ -38,9 +38,16 @@ final class LibraryStore {
         switch LibraryMigration.load(from: directory) {
         case .empty:
             break
-        case .loaded(let items):
+        case .loaded(var items):
+            // 一次性把旧版误填进「观看链接」的资料站链接搬回「资料链接」
+            let rehomed = LibraryMigration.rehomeReferenceLinks(&items)
             self.items = items
-        case .migrated(let items):
+            if rehomed {
+                saveNow()
+                Self.logger.info("资料链接归位完成")
+            }
+        case .migrated(var items):
+            LibraryMigration.rehomeReferenceLinks(&items)
             self.items = items
             saveNow()   // 立即落盘为 v3 格式
             Self.logger.info("v2→v3 迁移完成，共 \(items.count) 条")
@@ -112,11 +119,11 @@ final class LibraryStore {
         mutate(item) { $0.status = .inProgress; $0.lastTastedAt = Date() }
     }
 
-    /// 任意 → 已完成：进度自动补满
+    /// 任意 → 已完成：进度自动补满；无总量时清零，消除「已看 + 旧进度残留」
     func finish(_ item: MediaItem) {
         mutate(item) {
             $0.status = .completed
-            if $0.progressTotal > 0 { $0.progressCurrent = $0.progressTotal }
+            $0.progressCurrent = $0.progressTotal
             $0.lastTastedAt = Date()
         }
     }
@@ -131,19 +138,38 @@ final class LibraryStore {
         }
     }
 
-    /// 更新进度；置满时自动流转为已完成，从 0 开始时自动转入进行中
+    /// 更新进度；置满时自动流转为已完成，从 0 开始时自动转入进行中。
+    /// 无总量（progressTotal == 0）时忽略 current 写入、保持 0；
+    /// 仅在进度正增长或状态流转时刷新 `lastTastedAt`（无变化 / 仅设总量 / 进度减小均不刷新）。
     func updateProgress(_ item: MediaItem, current: Int, total: Int? = nil) {
         mutate(item) { i in
             if let total { i.progressTotal = max(0, total) }
             let cap = i.progressTotal
-            i.progressCurrent = max(0, cap > 0 ? min(current, cap) : current)
-            i.lastTastedAt = Date()
+            let oldCurrent = i.progressCurrent
+            let oldStatus = i.status
+            i.progressCurrent = cap > 0 ? min(max(0, current), cap) : 0
             if cap > 0 && i.progressCurrent >= cap {
                 i.status = .completed
+            } else if i.status == .completed && i.progressCurrent < cap {
+                // 已完成条目进度被拉到总量以下：回落进行中
+                i.status = .inProgress
             } else if i.status == .planned && i.progressCurrent > 0 {
                 i.status = .inProgress
             }
+            if i.progressCurrent > oldCurrent || i.status != oldStatus {
+                i.lastTastedAt = Date()
+            }
         }
+    }
+
+    /// 仅编辑总量：不截断当前进度、不触发状态流转、不动最近品味时间
+    func setTotal(_ item: MediaItem, total: Int) {
+        mutate(item) { $0.progressTotal = max(0, total) }
+    }
+
+    /// 「继续观赏」唤起媒体后记录最近品味时间（不动状态与进度）
+    func markTasted(_ item: MediaItem) {
+        mutate(item) { $0.lastTastedAt = Date() }
     }
 
     func setStatus(_ item: MediaItem, _ status: MediaStatus) {

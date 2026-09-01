@@ -34,6 +34,8 @@ struct AddMediaView: View {
     @State private var selectedResultID: UUID?
     @State private var draft = EntryDraft()
     @State private var coverPreview: NSImage?
+    /// 选用影视结果时带回的剧集总集数（确认收录时预填「按集」进度）
+    @State private var prefilledEpisodeCount: Int?
 
     /// 链接元数据提取任务与序号（与搜索同款竞态防护）
     @State private var metadataTask: Task<Void, Never>?
@@ -43,6 +45,9 @@ struct AddMediaView: View {
 
     /// EPUB 封面提取任务与状态
     @State private var epubTask: Task<Void, Never>?
+    /// 在途提取的递增序号：取消旧任务后回写前比对，防止被取代的旧任务
+    /// 复位「提取中」状态或把封面写进新流程
+    @State private var epubSequence = 0
     @State private var isExtractingCover = false
     @State private var coverMessage: String?
     @State private var isEPUBDropTargeted = false
@@ -82,7 +87,15 @@ struct AddMediaView: View {
 
             Spacer()
 
-            Button { dismiss() } label: {
+            Button {
+                // 编辑态按 Esc 先退回搜索结果列表，避免误关弹窗丢失已填内容；
+                // 非编辑态才直接关闭弹窗
+                if isEditing {
+                    cancelEditing()
+                } else {
+                    dismiss()
+                }
+            } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Theme.ink2)
@@ -226,6 +239,7 @@ struct AddMediaView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 8)
         }
+        .scrollIndicators(.hidden)
     }
 
     // MARK: - 编辑表单
@@ -245,10 +259,18 @@ struct AddMediaView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    fieldBox {
-                        TextField("年份", text: $draft.year)
+                    // 年份非空但解析失败时给出轻提示，不静默丢弃（确认时 year 留空而非错值）
+                    VStack(alignment: .leading, spacing: 4) {
+                        fieldBox {
+                            TextField("年份", text: $draft.year)
+                        }
+                        if !draft.year.trimmed.isEmpty && Int(draft.year.trimmed) == nil {
+                            Text("年份需为数字")
+                                .font(Theme.cardMeta)
+                                .foregroundStyle(Color.red)
+                        }
                     }
-                    .frame(width: 100)
+                    .frame(width: 100, alignment: .leading)
                 }
 
                 if selectedType == .music {
@@ -282,11 +304,11 @@ struct AddMediaView: View {
                         .font(Theme.body)
                         .foregroundStyle(Theme.ink)
                         .scrollContentBackground(.hidden)
+                        .scrollIndicators(.hidden)
                         .padding(6)
                         .frame(height: 64)
                         .background(Theme.well)
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                }
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))                }
 
                 ruleDivider
 
@@ -353,6 +375,10 @@ struct AddMediaView: View {
                     ) { fetchLinkMetadata() }
                 }
 
+                fieldBox {
+                    TextField("资料链接（豆瓣 / 维基，仅供查阅）", text: $draft.referenceURL)
+                }
+
                 if selectedType == .music {
                     fieldBox {
                         TextField("Apple Music 专辑链接", text: $draft.appleMusicURL)
@@ -401,6 +427,7 @@ struct AddMediaView: View {
             }
             .padding(22)
         }
+        .scrollIndicators(.hidden)
     }
 
     private func sectionLabel(_ text: String) -> some View {
@@ -482,13 +509,20 @@ struct AddMediaView: View {
     }
 
     private func extractEPUB(from path: String) {
+        // 取消上一次仍在途的提取并递增序号，旧任务晚返回时不再触碰 UI 状态
         epubTask?.cancel()
+        epubSequence += 1
+        let sequence = epubSequence
         isExtractingCover = true
         coverMessage = nil
         epubTask = Task {
+            // 子任务继承取消状态：父任务取消后 EPUBService 在关键节点放弃解压写盘
             let coverPath = await EPUBService.shared.extractCoverAsync(from: path)
-            guard !Task.isCancelled else { return }
+            // 只接受最新一次提取的回写：被取代 / 已取消的旧任务直接丢弃
+            guard sequence == epubSequence else { return }
+            // 无论成功失败或取消都要复位「提取中」，避免取消后按钮永久卡死在转圈
             isExtractingCover = false
+            guard !Task.isCancelled else { return }
             if let coverPath {
                 applyLocalCover(coverPath)
                 coverMessage = "已从 EPUB 提取封面"
@@ -632,9 +666,10 @@ struct AddMediaView: View {
 
     // MARK: - 选用与手动录入
 
-    /// 选用搜索结果：预填表单后进入编辑
+    /// 选用搜索结果：预填表单后进入编辑（资料链接预填，观看链接留给用户手动补）
     private func choose(_ result: SearchResult) {
         selectedResultID = result.id
+        prefilledEpisodeCount = result.episodeCount
         draft = EntryDraft(
             title: result.title,
             creator: result.creator ?? "",
@@ -642,7 +677,7 @@ struct AddMediaView: View {
             synopsis: result.synopsis ?? "",
             genre: result.genre ?? "",
             coverURL: result.coverURL ?? "",
-            webURL: result.webURL ?? "",
+            referenceURL: result.referenceURL ?? "",
             appleMusicURL: result.appleMusicURL ?? "",
             albumName: result.albumName ?? ""
         )
@@ -654,6 +689,7 @@ struct AddMediaView: View {
 
     private func startManualAdd() {
         selectedResultID = nil
+        prefilledEpisodeCount = nil
         draft = EntryDraft()
         coverPreview = nil
         coverMessage = nil
@@ -664,6 +700,7 @@ struct AddMediaView: View {
     private func cancelEditing() {
         isEditing = false
         selectedResultID = nil
+        prefilledEpisodeCount = nil
         draft = EntryDraft()
         coverPreview = nil
         coverMessage = nil
@@ -686,15 +723,30 @@ struct AddMediaView: View {
         item.albumName = draft.albumName.trimmed.nilIfEmpty
         item.appleMusicURL = draft.appleMusicURL.trimmed.nilIfEmpty
         item.webURL = draft.webURL.trimmed.nilIfEmpty
+        item.referenceURL = draft.referenceURL.trimmed.nilIfEmpty
         item.localFilePath = draft.localFilePath
+
+        // 豆瓣等来源带回的剧集集数：直接按「集」建进度（电影无此字段，保持分钟制）
+        if selectedType == .movie, let episodes = prefilledEpisodeCount, episodes > 1 {
+            item.progressUnit = .episodes
+            item.progressTotal = episodes
+        }
         item.tags = draft.tags
             .split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         item.rating = draft.rating
-        item.status = draft.status
 
+        // 不入库直接写 status：状态流转一律经 Store 副作用收口（product-design.md §6）。
+        // 「在看」→ startTasting 记录最近品味时间，保证能进「此刻」Hero 排序；
+        // 「已看」→ finish 自动补满进度；「待看」为 MediaItem 默认态，无需额外流转。
+        // 收录表单没有进度输入字段，进度语义由状态流转完整承载。
         store.add(item)
+        switch draft.status {
+        case .inProgress: store.startTasting(item)
+        case .completed:  store.finish(item)
+        case .planned:    break
+        }
         dismiss()
     }
 
@@ -772,6 +824,7 @@ private struct EntryDraft {
     var localCoverPath: String?
     var localFilePath: String?
     var webURL = ""
+    var referenceURL = ""
     var appleMusicURL = ""
     var albumName = ""
     var tags = ""
@@ -870,6 +923,8 @@ private struct RemoteThumbnailView: View {
     let urlString: String?
 
     @State private var image: NSImage?
+    /// 下载失败（含 418 之类的反爬拒绝）：收起转圈，退回占位图标
+    @State private var failed = false
 
     var body: some View {
         Group {
@@ -877,7 +932,7 @@ private struct RemoteThumbnailView: View {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFill()
-            } else if urlString != nil {
+            } else if urlString != nil && !failed {
                 ZStack {
                     Theme.well
                     ProgressView()
@@ -901,13 +956,23 @@ private struct RemoteThumbnailView: View {
                 return
             }
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                if let loaded = NSImage(data: data) {
-                    RemoteThumbCache.shared.cache.setObject(loaded, forKey: urlString as NSString)
-                    image = loaded
+                var request = URLRequest(url: url)
+                // 豆瓣图床无 Referer 返回 418（实测），需要声明来源页
+                if url.host?.hasSuffix("doubanio.com") == true {
+                    request.setValue("https://www.douban.com/", forHTTPHeaderField: "Referer")
                 }
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode),
+                      let loaded = NSImage(data: data) else {
+                    failed = true
+                    return
+                }
+                RemoteThumbCache.shared.cache.setObject(loaded, forKey: urlString as NSString)
+                image = loaded
             } catch {
                 // 下载失败保持占位，不打断列表交互
+                failed = true
             }
         }
     }

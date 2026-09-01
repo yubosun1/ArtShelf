@@ -27,7 +27,8 @@ enum LibraryMigration {
         var items: [MediaItem]
     }
 
-    private struct HeaderProbe: Codable {
+    /// 版本头探测（导入校验复用）
+    struct HeaderProbe: Codable {
         var schemaVersion: Int?
     }
 
@@ -49,12 +50,18 @@ enum LibraryMigration {
             let data = try Data(contentsOf: file)
 
             // v3：schemaVersion == 3
-            if (try? JSONDecoder().decode(HeaderProbe.self, from: data))?.schemaVersion == schemaVersion,
-               let doc = try? JSONDecoder().decode(LibraryDocument.self, from: data) {
-                return .loaded(doc.items)
+            if (try? JSONDecoder().decode(HeaderProbe.self, from: data))?.schemaVersion == schemaVersion {
+                if let doc = try? JSONDecoder().decode(LibraryDocument.self, from: data) {
+                    return .loaded(doc.items)
+                }
+                // 版本头为 v3 但内容无法解析：按损坏处理，不能落入 legacy 分支误生成 v2 备份
+                backupCorrupt(file, in: directory)
+                logger.error("v3 库文件内容无法解析，已备份损坏文件")
+                return .failed
             }
 
             // v2 包装格式 / v1 纯数组
+            // 注：v2 条目的 `customSortOrder`（自定义排序）字段废弃不迁移——v3 设计无自定义排序
             let decoder = JSONDecoder()
             var legacy: [MediaItem]?
             if let wrapped = try? decoder.decode(V2Wrapper.self, from: data) {
@@ -84,6 +91,36 @@ enum LibraryMigration {
             item.lastTastedAt = item.lastViewedDate ?? item.dateAdded
         }
         return item
+    }
+
+    // MARK: - 资料链接归位（一次性修正）
+
+    /// 已知资料站域名：语义拆分前这些链接被搜索预填进 webURL「观看链接」，
+    /// 加载时一次性搬回 referenceURL；用户手动补的观看链接（YouTube / B 站等）不受影响
+    private static let referenceDomains = ["douban.com", "wikipedia.org", "tvmaze.com", "itunes.apple.com"]
+
+    private static func isReferenceHost(_ host: String) -> Bool {
+        // books.google.com / books.google.co.jp 等多后缀域名单独按前缀判
+        if host.hasPrefix("books.google.") { return true }
+        // 严格域名边界：本身或子域名才算，避免误伤 notdouban.com 之类
+        return referenceDomains.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
+
+    /// 把误置在 webURL 里的资料页链接搬回 referenceURL，返回是否有改动
+    @discardableResult
+    static func rehomeReferenceLinks(_ items: inout [MediaItem]) -> Bool {
+        var changed = false
+        for index in items.indices {
+            guard items[index].referenceURL == nil,
+                  let web = items[index].webURL,
+                  let host = URL(string: web)?.host()?.lowercased(),
+                  isReferenceHost(host)
+            else { continue }
+            items[index].referenceURL = web
+            items[index].webURL = nil
+            changed = true
+        }
+        return changed
     }
 
     // MARK: - 备份

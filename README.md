@@ -1,158 +1,111 @@
 # ArtShelf
 
 <p align="center">
-  <img src="ArtShelf/Resources/Icons/prism_ivory.png" alt="ArtShelf Icon" width="128" height="128" style="border-radius: 28px; box-shadow: 0 12px 28px rgba(0,0,0,0.18);">
+  <img src="ArtShelf/Resources/Icons/prism_ivory.png" alt="ArtShelf Icon" width="128" height="128">
 </p>
 
 <p align="center">
-  <strong>一个为 macOS 精心打造的原生个人审美与全品类媒体策展空间</strong><br>
-  电影胶片的光影、黑胶唱片的律动、案头书卷的墨香——把你的整个精神世界，安置在一个温润雅致的书架上。
+  <strong>macOS 原生个人媒体策展空间 —— 影视 · 音乐 · 书籍</strong><br>
+  一间属于你的沉浸暗房：封面是主角，此刻正在品味的作品永远站在舞台中央。
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.2-blue" alt="Version 2.0.2">
-  <img src="https://img.shields.io/badge/macOS-14.0%2B%20Sonoma%20%7C%20Sequoia-333333?logo=apple" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-5.9%20%7C%20SwiftUI%20Native-FA7343?logo=swift" alt="Swift 5.9">
-  <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-blue" alt="Architecture">
+  <img src="https://img.shields.io/badge/version-3.0.0-blue" alt="Version 3.0.0">
+  <img src="https://img.shields.io/badge/macOS-14.0%2B-333333?logo=apple" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-6%20%7C%20SwiftUI-FA7343?logo=swift" alt="Swift 6">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/badge/Privacy-100%25%20Local%20First-success" alt="Local First">
 </p>
 
 ---
 
-## 📸 界面预览
+## 界面预览
 
 <p align="center">
-  <img src="docs/screenshots/main.png" alt="ArtShelf 主界面" width="100%" style="border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.16);">
+  <img src="docs/screenshots/main.png" alt="ArtShelf「此刻」主页" width="100%">
 </p>
 
----
+## 核心特性
 
-## ✨ 核心特性
+### 此刻优先的沉浸暗房
 
-### 🏛️ 现代画廊主页与三大专属实体拟物封面 (Artisan Atelier Covers)
-- **艺术策展数据矩阵**：直观汇总影视、音乐、书籍的收藏总量（部 / 张 / 本），在看、在听、在读的实时品味进度一目了然。
-- **正在品味 (In Progress) 焦点条**：将当前正在阅读、观赏或收听的藏品置于视觉中心，自适应各类型专属拟物封面。
-- **三大专属拟物装帧封面组件**：
-  - 🎬 **影视典藏 (2:3 · `MovieCoverView`)**：经典 2:3 胶片海报覆以影院级透光亚克力微光泽，海报后方探出 35mm 典藏级物理胶片底片（对称片孔、微缩画格原画底片与柯达胶卷工业边码），悬停时轻盈滑出并伴随微角度偏转；
-  - 🎵 **黑胶唱片 (1:1 · `MusicCoverView`)**：严格 1:1 方形硬纸板封套配以书脊折痕压痕，封套内探出高精度矢量黑胶唱片（同心音轨、径向双光锥反射与中央艺术标），悬停时滑出并优雅旋转；
-  - 📖 **案头藏书 (2:3 · `BookCoverView`)**：仿真实体精装硬皮书壳、书脊圆脊与铰链压槽（Spine Hinge Crease），右侧展露层叠象牙色纸张书口切口（Fore-Edge Deckle Pages）与垂挂的高级编织丝绸书签飘带，悬停时呈现 3D 微掀起与飘带轻摇动效；
-  - 每条分类展架均支持水平流畅滑动，并附带量身定制的“查看全部 N 部/张/本 ›”一键直达。
+- **此刻主页**：最近正在品味的作品以大封面 Hero 呈现——标题、手记摘要、进度、「继续观赏」一键直达；其余进行中的藏品排成队列卡紧随其后
+- **封面即主角**：封面满幅铺陈，主色溢出为环境光晕，整个界面从藏品中生长出来
+- **深浅双色随系统**：深色是暗房本色，浅色是「白昼放映厅」，两种外观一等公民
 
-### 🎨 东方意蕴与现代排版美学
-- **现代编辑美学**：宋体标题 + 象牙纸底（Ivory Paper）+ 发丝细线，克莱因靛蓝（Klein Indigo）艺术强调色与朱砂红印点睛。
-- **微浮雕光感**：柔和环境微光（Ambient Light）、微悬浮动效反馈、原生毛玻璃与精雕倒角。
-- **极致无干扰**：全面消解原生滚动条与槽位，还原沉浸纯净的书房观赏体验。
+### 片库 · 唱片 · 书架
 
-### ⚙️ 自由定制：深浅模式与动态图标切换
-- **全局深浅外观随心切换**：
-  - `跟随系统`：无缝自适应 macOS 全局外观；
-  - `浅色模式`：温润素雅的象牙纸白画廊风格；
-  - `深色模式`：沉浸深邃的深空炭灰暗房风格。
-- **4 款官方定制棱镜图标，程序坞 (Dock) 实时动态切换**：
-  基于「棱镜之架与灵感光谱 (The Prism Easel)」设计理念，支持在设置面板中直接点击更换，即刻生效：
-  - ⚪ **象牙画廊纯白**（默认推荐）：纯净画廊底色，水晶棱镜折射全彩光谱；
-  - 🔵 **晴空微晶淡蓝**：清晨微风晴空浅蓝，清爽灵动呼吸感；
-  - 🌸 **珍珠粉晕暖白**：柔美珍珠粉金微晕，与温柔浪漫、治愈生活心动呼应；
-  - ⚫ **深空暮夜棱镜**：经典黑曜石深邃背景，沉稳克制极客范。
+- 三个全量网格页：影视与书籍 2:3 竖版、音乐 1:1 方形封面墙，状态徽标叠于封面角落
+- 封面右键就地维护：标记已看 / 再看一遍 / 记一笔 / 删除，不必进详情页
+- 筛选与排序收进标题行；检索统一走顶栏全局搜索（`⌘F`，跨标题 / 创作者 / 标签 / 笔记）
 
-### 🔍 智能元数据与多源合流补全
-- 输入标题或关键词，自动检索补全封面海报、导演/作者、发行年份、内容简介与分类：
-  - 🎬 **影视**：Wikipedia 高清海报 + TVMaze + Apple 剧集目录
-  - 🎵 **音乐**：iTunes Search API（高保真专辑封面）
-  - 📖 **书籍**：Google Books API
-- **零配置开箱即用**：全部基于公开免费接口，**无需配置任何 API Key**。
+### 有分寸的进度与记录
 
-### 📖 本地 EPUB 封面精准提取
-- 支持直接拖入或导入本地 `.epub` 电子书文件：
-  - 自动解包解析，采用 `cover-image` 属性定位、`meta name="cover"` 解析及语义启发式查找多重策略；
-  - 秒级提取原汁原味的高清内嵌封面图，无需手动寻找海报。
+- **进度单位贴合内容**：电影按分钟，剧集 / 综艺可按集或期，书籍按页、音乐按音轨
+- **策展手记条目化**：每件藏品多条手记，按时间倒序，是品味的回响而非备注栏
+- **观看链接与资料链接分离**：豆瓣 / 维基资料页搜索时自动带上、只读查阅；在线观看链接由你手动粘贴，详情页一键唤起
+- 0–5 星评分、多标签归档、「再看一遍」自动累计重温次数
 
-### 🗂️ 深度记录与关联交互
-- **评分与鉴赏笔记**：0–5 星自由打分、专属心情感想短评、自定义多标签（Tags）分类归档。
-- **文件与在线链接关联**：每条藏品可关联本地影音/书籍文件或外部网页链接，双击一键唤起系统默认应用打开。
-- **多维度检索与排序**：支持全字段秒级搜索，以及按智能权重、最近浏览、添加时间、标题与评分排序。
+### 元数据自动补全（零 API Key）
 
----
+- 影视：豆瓣联想源为主（华语覆盖最好、标准海报、剧集集数），Wikipedia 摘要 + Wikidata 补导演 / 类型，TVMaze 补英美剧
+- 音乐：iTunes Search API（高保真专辑封面、Apple Music 链接）
+- 书籍：豆瓣图书 + Google Books；本地 `.epub` 拖入即可精准提取内嵌封面
+- 多源结果按标题合并补缺，全部基于公开免费接口
 
-## 🔒 数据安全与隐私承诺
+### 数据透明
 
-- **100% 本地优先 (Local First)**：所有收藏记录以规范 JSON 保存在本地 `~/Library/Application Support/ArtShelf/library.json`。
-- **本地封面存储**：所有媒体封面图片缓存于 `~/Library/Application Support/ArtShelf/covers/`。
-- **零云端、无遥测**：不收集任何用户行为，不上传任何个人数据，无任何远程分析 SDK。
-- **真正私有**：代码仓库与发行版本中绝不包含任何用户的本地收藏数据与个人笔记。
+- 全部数据存于本地 `~/Library/Application Support/ArtShelf/library.json`（规范 JSON，可直接查看）
+- 设置面板支持导出 / 导入 JSON 备份；v2 老用户数据首次启动自动无损迁移（先备份，绝不覆盖）
+- 零云端、无遥测、零第三方依赖
 
----
+## 快捷键
 
-## ⌨️ 常用快捷键
+| 快捷键 | 功能 |
+| :-- | :-- |
+| `⌘1` – `⌘5` | 切换 此刻 / 片库 / 唱片 / 书架 / 统计 |
+| `⌘N` | 收录新媒体 |
+| `⌘F` | 聚焦全局搜索 |
+| `⌘ ,` | 设置 |
+| `Esc` | 分层关闭 搜索浮层 / 详情 / 收录 |
 
-| 快捷键 | 功能操作 |
-| :--- | :--- |
-| `⌘ ,` | 打开**偏好设置**（外观模式、应用图标切换、存储管理） |
-| `⌘ N` | **添加新媒体**（快速搜索元数据或手动收录） |
-| `⌘ F` | 快速聚焦**全局搜索框** |
-| `Esc` | 关闭当前弹窗 / 详情面板 |
+## 编译与运行
 
----
-
-## 🚀 编译与构建
-
-### 系统要求
-- macOS 14.0 (Sonoma) 或更高版本
-- 安装有 Xcode 命令行工具或完整 Xcode
-
-### 一键构建与安装
-ArtShelf 提供了便捷的顶层自动化脚本，编译 release 二进制、打包完整 `.app` 资源并自动同步至系统应用目录：
+要求 macOS 14.0+，Xcode 命令行工具或完整 Xcode，Swift 6 工具链。
 
 ```bash
-# 克隆仓库
 git clone https://github.com/yubosun1/ArtShelf.git
 cd ArtShelf
-
-# 一键编译并打包安装到 /Applications
-./build.sh
+./build.sh          # 编译 release、打包并安装到 /Applications
 ```
 
-构建完成后，你可以在系统的「启动台 (Launchpad)」或 `/Applications/ArtShelf.app` 中直接启动使用。
+构建后从启动台或 `/Applications/ArtShelf.app` 启动。更多开发命令见 [AGENTS.md](AGENTS.md)。
 
----
-
-## 📁 项目目录结构
+## 项目结构
 
 ```
 ArtShelf/
-├── build.sh                          # 自动化构建、资源打包与系统安装脚本
-├── README.md                         # 项目设计与使用文档
-├── LICENSE                           # MIT 开源许可证
-├── docs/                             # 文档与预览截图
-│   └── screenshots/main.png          # 官方主界面截图
-└── ArtShelf/
-    ├── Package.swift                  # Swift Package 清单（macOS 14+）
-    ├── ArtShelf.icns                 # 打包生成的 macOS 主应用图标
-    ├── Resources/                    # 资源目录
-    │   ├── Info.plist                # 应用权限与环境配置清单
-    │   ├── icon.png                  # 默认高分辨率图标源
-    │   └── Icons/                    # 4 款可动态切换的高清棱镜系列图标
-    ├── Scripts/
-    │   ├── generate_icons.swift      # 官方矢量图标渲染生成脚本 (Swift + CoreGraphics)
-    │   └── package_icon.sh           # 将源图打包转换为 .icns 工具脚本
+├── build.sh                  # 构建、打包与安装脚本
+├── design-proposals/         # v3 视觉概念稿（HTML，浏览器打开）
+├── docs/                     # 产品与技术文档、截图
+└── ArtShelf/                 # Swift Package 源码
+    ├── Package.swift
+    ├── Resources/            # Info.plist 与图标资源
+    ├── Scripts/              # 图标生成 / 打包脚本
     └── Sources/ArtShelf/
-        ├── ArtShelfApp.swift         # 应用程序入口、主菜单命令与快捷键体系
-        ├── Models/                   # 核心数据模型 (MediaItem / MediaType / MediaStatus)
-        ├── Services/                 # 元数据自动抓取、EPUB 封面解压、本地文件服务
-        ├── Store/                    # 数据持久化 (DataStore) 与主题外观管理 (ThemeManager)
-        └── Views/                    # 纯原生 SwiftUI 视图层
-            ├── HomeView.swift        # 艺术画廊主页与数据矩阵
-            ├── BookshelfView.swift   # 分类书架陈列与流式瀑布流
-            ├── SettingsView.swift    # 偏好设置面板（外观与图标动态切换）
-            ├── DetailView.swift      # 媒体全功能沉浸详情弹窗
-            ├── AddMediaView.swift    # 媒体收录与元数据补全弹窗
-            ├── SidebarView.swift     # 侧边栏导航与设置入口
-            └── ArtShelfStyle.swift   # 现代画廊设计系统与调色板规范
+        ├── DesignSystem/     # 设计令牌（深浅双色）、封面加载与取色、通用组件
+        ├── Models/           # Codable 值类型（MediaItem / NoteEntry / 枚举）
+        ├── Services/         # 元数据抓取、EPUB 解析、文件与链接打开
+        ├── Store/            # LibraryStore 仓库、迁移器、导入导出
+        ├── SelfTest/         # 内置数据层自测（仅 Debug）
+        └── Features/         # 按页面组织视图（Root/Now/Library/Detail/Add/Stats/Settings）
 ```
 
----
+## 文档
 
-## 📜 开源许可证
+- [docs/product-design.md](docs/product-design.md) —— 产品设计方案（定位、页面、视觉系统、数据口径）
+- [docs/tech-architecture.md](docs/tech-architecture.md) —— 技术方案（分层、数据层、迁移、设计系统实现）
+
+## 开源许可证
 
 本项目基于 [MIT License](LICENSE) 协议开源。

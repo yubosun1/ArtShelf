@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// 顶栏：Logo + Tab 导航 + 全局搜索 + 收录 / 设置入口
+/// 顶栏：Logo + Tab 导航 + 全局搜索（结果浮层锚定搜索框正下方）+ 收录 / 设置入口
 ///
-/// 隐藏标题栏样式下，左侧留白避让系统红绿灯按钮。
+/// 上方已有独立标题条（ContentView），红绿灯不再与本行争位；
+/// 左右留白与内容区同为 40，构成统一的左轴。
 struct TopBarView: View {
 
     var searchFocused: FocusState<Bool>.Binding
@@ -14,17 +15,25 @@ struct TopBarView: View {
     var body: some View {
         @Bindable var state = appState
 
-        HStack(spacing: 26) {
+        HStack(spacing: 28) {
             logo
             tabs
             Spacer()
             searchField
+                .overlay(alignment: .bottomTrailing) {
+                    // 结果浮层锚定搜索框正下方：右缘对齐，顶缘距框底 8pt；详情整版打开时不渲染
+                    if !state.searchText.isEmpty, state.detailItemID == nil {
+                        GlobalSearchView()
+                            .alignmentGuide(.bottom) { $0[.top] - 8 }
+                            .transition(.opacity)
+                    }
+                }
             addButton
             settingsButton
         }
-        .padding(.leading, 88)   // 避让红绿灯
-        .padding(.trailing, 28)
+        .padding(.horizontal, 40)   // 与内容区 Theme.contentPadding 同轴（反馈：库页左缘须与顶栏对齐）
         .frame(height: 60)
+        .background(Theme.titlebar)
     }
 
     // MARK: - Logo
@@ -33,14 +42,7 @@ struct TopBarView: View {
         HStack(spacing: 9) {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(AngularGradient(
-                    colors: [
-                        Color(red: 0.36, green: 0.51, blue: 0.96),
-                        Color(red: 0.60, green: 0.36, blue: 0.96),
-                        Color(red: 0.91, green: 0.36, blue: 0.61),
-                        Color(red: 0.91, green: 0.64, blue: 0.24),
-                        Color(red: 0.26, green: 0.71, blue: 0.51),
-                        Color(red: 0.36, green: 0.51, blue: 0.96)
-                    ],
+                    colors: Theme.prismColors,
                     center: .center
                 ))
                 .frame(width: 18, height: 18)
@@ -76,11 +78,12 @@ struct TopBarView: View {
 
     private var searchField: some View {
         @Bindable var state = appState
+        let placeholder = store.items.isEmpty ? "搜索藏品…" : "搜索 \(store.items.count) 件藏品…"
         return HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.ink3)
-            TextField("搜索藏品…", text: $state.searchText)
+            TextField(placeholder, text: $state.searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.ink)
@@ -88,12 +91,14 @@ struct TopBarView: View {
                 .onSubmit(openFirstMatch)
             if state.searchText.isEmpty {
                 Text("⌘F")
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.ink3)
                     .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
+                    .padding(.vertical, 1.5)
+                    .background(Theme.panel.opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .strokeBorder(Theme.rule, lineWidth: 1)
                     )
             } else {
@@ -112,7 +117,7 @@ struct TopBarView: View {
         .clipShape(Capsule())
         .overlay(
             Capsule().strokeBorder(
-                searchFocused.wrappedValue ? Theme.amber.opacity(0.5) : Theme.rule,
+                searchFocused.wrappedValue ? Theme.amber.opacity(0.55) : Theme.rule,
                 lineWidth: 1
             )
         )

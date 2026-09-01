@@ -2,8 +2,8 @@ import SwiftUI
 
 /// 沉浸整版详情页（设计稿见 docs/product-design.md §4.3）
 ///
-/// 左侧大封面 + 主色光晕；右侧自上而下：标题 / 元信息 / 标签、
-/// 状态与流转操作、评分、进度、策展手记、关联文件与链接、时间底注。
+/// 左侧大封面 + 主色光晕；右侧自上而下（§4.3）：标题 / 元信息 / 标签、
+/// 评分、策展手记、关联文件与链接、状态与进度（相邻垫底）、时间底注。
 /// 藏品按 id 从 `LibraryStore` 实时取用（值类型快照），修改一律经由
 /// store 方法 / `store.update`，保证流转副作用（§6）一致。
 struct DetailView: View {
@@ -19,6 +19,11 @@ struct DetailView: View {
     @State private var tagText = ""
     @State private var totalInput = ""
     @State private var noteText = ""
+    @State private var watchInput = ""
+
+    /// 焦点目标：总量输入框 / 观看链接输入框（失焦提交）/ 手记编辑器（「记一笔」意图置焦）
+    private enum FocusTarget: Hashable { case total, note, watch }
+    @FocusState private var focus: FocusTarget?
 
     /// 当前藏品快照；被删除时为 nil（显示占位）
     private var item: MediaItem? { store.item(for: itemID) }
@@ -32,7 +37,10 @@ struct DetailView: View {
             }
         }
         .background(Theme.bg)
-        .task(id: itemID) { syncLocals() }
+        .task(id: itemID) {
+            syncLocals()
+            applyDetailIntent()
+        }
     }
 
     // MARK: - 内容（藏品存在时）
@@ -45,6 +53,7 @@ struct DetailView: View {
                 ScrollView {
                     rightColumn(item)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .padding(.horizontal, Theme.contentPadding)
@@ -115,11 +124,11 @@ struct DetailView: View {
     private func rightColumn(_ item: MediaItem) -> some View {
         VStack(alignment: .leading, spacing: 30) {
             titleBlock(item)
-            statusRow(item)
             ratingBlock(item)
-            progressBlock(item)
             notesBlock(item)
             relatedBlock(item)
+            statusRow(item)
+            progressBlock(item)
             footerText(item)
         }
         .frame(maxWidth: 560, alignment: .leading)
@@ -131,6 +140,7 @@ struct DetailView: View {
     private func titleBlock(_ item: MediaItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(item.title)
+                // 详情页专属大标题：无对应令牌（heroTitle 44 / sectionTitle 19 均不符），保留 32
                 .font(.system(size: 32, weight: .heavy))
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -168,6 +178,7 @@ struct DetailView: View {
                 HStack(spacing: 8) {
                     ForEach(item.tags, id: \.self) { tag in
                         Text("# \(tag)")
+                            // 标签胶囊 11pt 常规字重：kicker 为加粗小标字重不符，无对应令牌，保留
                             .font(.system(size: 11))
                             .foregroundStyle(Theme.ink2)
                             .padding(.horizontal, 11)
@@ -201,6 +212,7 @@ struct DetailView: View {
             StatusBadge(status: item.status, type: item.type, text: badgeText(item))
             if item.replayCount > 0 {
                 Text("第 \(item.replayCount + 1) 次重温")
+                    // 重温角标 11.5 semibold：无对应令牌，保留
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(Theme.ink3)
             }
@@ -257,10 +269,11 @@ struct DetailView: View {
             if item.progressTotal > 0 {
                 progressSliderRow(item)
                 Text("\(item.progressText) · \(Int(item.progress * 100))%")
+                    // 进度数字 12 semibold 琥珀强调：无对应令牌（control 为 medium），保留
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.amber)
             } else {
-                Text("记录总\(item.type.progressUnit)数后开启进度")
+                Text("记录总\(item.progressUnitLabel)数后开启进度")
                     .font(Theme.body)
                     .foregroundStyle(Theme.ink3)
             }
@@ -273,6 +286,8 @@ struct DetailView: View {
             stepButton(item, -1)
             Slider(value: progressBinding(item), in: 0...Double(max(item.progressTotal, 1)), step: 1)
                 .tint(Theme.amberBtn)
+                // 轨道底对齐 §5.1 track 令牌（叠于 Slider 自身轨道之下，滑杆交互不受影响）
+                .background(Capsule().fill(Theme.track).frame(height: 5))
             stepButton(item, 1)
         }
     }
@@ -286,11 +301,11 @@ struct DetailView: View {
     }
 
     private func stepButton(_ item: MediaItem, _ sign: Int) -> some View {
-        let step = sign * item.type.progressStep
+        let step = sign * item.progressStep
         return Button {
             store.updateProgress(item, current: item.progressCurrent + step)
         } label: {
-            Text("\(step > 0 ? "+" : "")\(step) \(item.type.progressUnit)")
+            Text("\(step > 0 ? "+" : "")\(step) \(item.progressUnitLabel)")
                 .font(Theme.control)
                 .foregroundStyle(Theme.ink2)
                 .padding(.horizontal, 12)
@@ -322,23 +337,77 @@ struct DetailView: View {
                         .strokeBorder(Theme.rule, lineWidth: 1)
                 )
                 .onSubmit { commitTotal(item) }
-            Text(item.type.progressUnit)
-                .font(Theme.body)
-                .foregroundStyle(Theme.ink2)
+                .focused($focus, equals: .total)
+                // 失焦同样提交，避免只认回车
+                .onChange(of: focus) { was, now in
+                    if was == .total, now != .total { commitTotal(item) }
+                }
+            unitControl(item)
             Spacer()
             ghostButton("标记看完", systemImage: "checkmark.circle") {
-                store.updateProgress(item, current: item.progressTotal)
+                // 先落盘总量输入框里的编辑，再按最新总量置满
+                commitTotal(item)
+                if let latest = store.item(for: item.id) {
+                    store.updateProgress(latest, current: latest.progressTotal)
+                }
             }
             .disabled(item.progressTotal <= 0)
             .opacity(item.progressTotal <= 0 ? 0.4 : 1)
         }
     }
 
+    /// 进度单位：影视可切换 分钟 / 集 / 期，其余类型固定文案
+    @ViewBuilder
+    private func unitControl(_ item: MediaItem) -> some View {
+        if item.type == .movie {
+            Menu {
+                Picker("进度单位", selection: unitBinding(item)) {
+                    ForEach(ProgressUnit.allCases, id: \.self) { unit in
+                        Text(unit.label).tag(unit)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(item.progressUnitLabel)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                }
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink2)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("电影按分钟；剧集按集；综艺按期")
+        } else {
+            Text(item.progressUnitLabel)
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink2)
+        }
+    }
+
+    /// 单位切换：分钟↔集/期时总量语义已变（片长↔集数），清空总量让用户重填，进度归零
+    private func unitBinding(_ item: MediaItem) -> Binding<ProgressUnit> {
+        Binding(
+            get: { item.progressUnit ?? .minutes },
+            set: { newUnit in
+                guard newUnit != (item.progressUnit ?? .minutes) else { return }
+                var copy = item
+                copy.progressUnit = newUnit == .minutes ? nil : newUnit
+                copy.progressCurrent = 0
+                copy.progressTotal = 0
+                store.update(copy)
+                totalInput = ""
+            }
+        )
+    }
+
     private func commitTotal(_ item: MediaItem) {
         let trimmed = totalInput.trimmingCharacters(in: .whitespaces)
         if let value = Int(trimmed), value > 0 {
             totalInput = "\(value)"
-            store.updateProgress(item, current: item.progressCurrent, total: value)
+            // 仅写总量：不截断已记录进度、不触发状态流转
+            // （改小总量不能再把 current min 截断或误置「已完成」，避免进度不可逆丢失）
+            store.setTotal(item, total: value)
         } else {
             // 非法输入回退显示当前总量
             totalInput = item.progressTotal > 0 ? "\(item.progressTotal)" : ""
@@ -377,6 +446,8 @@ struct DetailView: View {
                 TextEditor(text: $noteText)
                     .font(Theme.body)
                     .scrollContentBackground(.hidden)
+                    .scrollIndicators(.hidden)
+                    .focused($focus, equals: .note)
                     .padding(8)
                     .frame(height: 66)
                     .background(Theme.well)
@@ -390,7 +461,7 @@ struct DetailView: View {
                 Spacer()
                 Button("记下") { commitNote(item) }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(Theme.cardTitle)
                     .foregroundStyle(Theme.amber)
                     .opacity(noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1)
             }
@@ -408,7 +479,7 @@ struct DetailView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.system(size: 10.5))
+                    .font(Theme.cardMeta)
                     .foregroundStyle(Theme.ink3)
                 Text(note.text)
                     .font(Theme.body)
@@ -442,11 +513,12 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("关联")
             localFileRow(item)
-            if let url = item.webURL {
-                urlRow(systemImage: "globe", url: url)
+            watchURLRow(item)
+            if let url = item.referenceURL {
+                urlRow(systemImage: "link", url: url, hint: "资料页 · 双击打开")
             }
             if let url = item.appleMusicURL {
-                urlRow(systemImage: "music.note", url: url)
+                urlRow(systemImage: "music.note", url: url, hint: "双击打开")
             }
         }
     }
@@ -481,14 +553,14 @@ struct DetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             if let path = item.localFilePath, exists {
                 Text("双击打开")
-                    .font(.system(size: 10.5))
+                    .font(Theme.cardMeta)
                     .foregroundStyle(Theme.ink3)
                     .contentShape(Rectangle())
                     .onTapGesture(count: 2) { FileService.shared.openLocalFile(at: path) }
             }
             Button("选取文件…") { pickLocalFile(item) }
                 .buttonStyle(.plain)
-                .font(.system(size: 12))
+                .font(Theme.control)
                 .foregroundStyle(Theme.ink2)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
@@ -505,7 +577,58 @@ struct DetailView: View {
         )
     }
 
-    private func urlRow(systemImage: String, url: String) -> some View {
+    /// 在线观看链接：可编辑输入框（回车 / 失焦提交）+ 专属「在线观看」按钮
+    private func watchURLRow(_ item: MediaItem) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "play.rectangle")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.ink3)
+                .frame(width: 20)
+            TextField("在线观看链接，粘贴后回车", text: $watchInput)
+                .textFieldStyle(.plain)
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink)
+                .onSubmit { commitWatchURL(item) }
+                .focused($focus, equals: .watch)
+                // 失焦同样提交，避免只认回车
+                .onChange(of: focus) { was, now in
+                    if was == .watch, now != .watch { commitWatchURL(item) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                if let url = item.webURL { FileService.shared.openURL(url) }
+            } label: {
+                Label("在线观看", systemImage: "play.fill")
+                    .font(Theme.control)
+                    .foregroundStyle(item.webURL == nil ? Theme.ink3 : Theme.amberOn)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(item.webURL == nil ? Theme.well : Theme.amberBtn)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(item.webURL == nil)
+            .help(item.webURL == nil ? "先在左侧粘贴观看链接" : "打开观看链接")
+        }
+        .padding(12)
+        .background(Theme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous)
+                .strokeBorder(Theme.rule, lineWidth: 1)
+        )
+    }
+
+    private func commitWatchURL(_ item: MediaItem) {
+        let trimmed = watchInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (item.webURL ?? "") else { return }
+        var copy = item
+        copy.webURL = trimmed.isEmpty ? nil : trimmed
+        store.update(copy)
+        watchInput = trimmed
+    }
+
+    private func urlRow(systemImage: String, url: String, hint: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 13))
@@ -519,8 +642,8 @@ struct DetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { FileService.shared.openURL(url) }
-            Text("双击打开")
-                .font(.system(size: 10.5))
+            Text(hint)
+                .font(Theme.cardMeta)
                 .foregroundStyle(Theme.ink3)
         }
         .padding(12)
@@ -533,7 +656,8 @@ struct DetailView: View {
     }
 
     private func pickLocalFile(_ item: MediaItem) {
-        guard let path = FileService.shared.pickFile(allowedTypes: ["public.item"]) else { return }
+        // 不限类型（空数组放行全部文件）：任何本地文件都可关联
+        guard let path = FileService.shared.pickFile(allowedTypes: []) else { return }
         var copy = item
         copy.localFilePath = path
         store.update(copy)
@@ -547,17 +671,30 @@ struct DetailView: View {
             parts.append("最近浏览 \(last.formatted(date: .long, time: .shortened))")
         }
         return Text(parts.joined(separator: " / "))
+            // 底注 11pt 常规字重：kicker 为加粗小标字重不符，无对应令牌，保留
             .font(.system(size: 11))
             .foregroundStyle(Theme.ink3)
     }
 
     // MARK: - 本地状态同步
 
-    /// 详情打开或切换藏品时，把 store 快照写回编辑态（标签 / 总量输入框）
+    /// 详情打开或切换藏品时，把 store 快照写回编辑态（标签 / 总量输入框），
+    /// 并清掉上一藏品的手记草稿与封面主色光晕
     private func syncLocals() {
         guard let item else { return }
         tagText = item.tags.joined(separator: "，")
         totalInput = item.progressTotal > 0 ? "\(item.progressTotal)" : ""
+        watchInput = item.webURL ?? ""
+        noteText = ""
+        glowColor = nil
+    }
+
+    /// 「记一笔」意图：落地详情页时自动聚焦手记编辑器，
+    /// 随后把意图复位为 .view，避免后续重渲染重复抢焦
+    private func applyDetailIntent() {
+        guard appState.detailIntent == .writeNote else { return }
+        appState.detailIntent = .view
+        focus = .note
     }
 
     // MARK: - 通用小件

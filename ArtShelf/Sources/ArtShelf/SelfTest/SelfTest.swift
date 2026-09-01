@@ -36,6 +36,7 @@ enum SelfTest {
         print("ArtShelf 自测（数据层）")
         migrationSuite()
         storeSuite()
+        ioSuite()
         print("共 \(checks) 项断言，失败 \(failures) 项")
         return failures == 0 ? 0 : 1
     }
@@ -149,6 +150,65 @@ enum SelfTest {
             let raw = try? String(contentsOf: dir.appendingPathComponent("library.json"), encoding: .utf8)
             checkEqual(raw, "not json at all", "原文件未被覆盖")
         }
+
+        withTempDir { dir in
+            // 版本头为 v3 但内容无法解析：按损坏处理，不得落入 v2 迁移分支
+            write("""
+            { "schemaVersion": 3, "items": "oops" }
+            """, in: dir)
+            guard case .failed = LibraryMigration.load(from: dir) else {
+                return check(false, "v3 头 + 坏内容应为 .failed")
+            }
+            let contents = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+            check(contents.contains { $0.hasPrefix("library.json.corrupt-") }, "v3 坏内容备份为 corrupt")
+            check(!contents.contains("library.v2.backup.json"), "v3 坏内容不生成 v2 备份")
+        }
+
+        withTempDir { dir in
+            // 未知枚举值落默认值，不拖垮整库解码
+            write("""
+            {
+              "schemaVersion": 3,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "脏数据", "type": "游戏", "status": "归档" },
+                { "id": "F621E1F8-C36C-495A-93FC-0C247A3E6E60", "title": "正常", "type": "音乐", "status": "completed" }
+              ]
+            }
+            """, in: dir)
+            guard case .loaded(let items) = LibraryMigration.load(from: dir) else {
+                return check(false, "含未知枚举的 v3 文档应仍可加载")
+            }
+            checkEqual(items.count, 2, "未知枚举不丢条目")
+            checkEqual(items[0].type, .movie, "未知类型回落默认影视")
+            checkEqual(items[0].status, .planned, "未知状态回落待品味")
+            checkEqual(items[1].type, .music, "已知类型正常解析")
+        }
+
+        withTempDir { dir in
+            // referenceURL / progressUnit 新字段解析；旧数据缺字段或未知单位值均容错为 nil
+            write("""
+            {
+              "schemaVersion": 3,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "大明王朝1566", "type": "影视",
+                  "referenceURL": "https://movie.douban.com/subject/2210001/", "progressUnit": "episodes",
+                  "progressCurrent": 7, "progressTotal": 46 },
+                { "id": "F621E1F8-C36C-495A-93FC-0C247A3E6E60", "title": "旧条目", "type": "影视",
+                  "progressUnit": "季" }
+              ]
+            }
+            """, in: dir)
+            guard case .loaded(let items) = LibraryMigration.load(from: dir) else {
+                return check(false, "含新字段的 v3 文档应可加载")
+            }
+            checkEqual(items[0].referenceURL, "https://movie.douban.com/subject/2210001/", "referenceURL 解析")
+            checkEqual(items[0].progressUnit, .episodes, "progressUnit 解析")
+            checkEqual(items[0].progressText, "第 7 / 46 集", "按集进度文案")
+            checkNil(items[1].referenceURL, "缺 referenceURL 字段容错为 nil")
+            checkNil(items[1].progressUnit, "未知 progressUnit 值容错为 nil")
+        }
     }
 
     // MARK: - 数据仓库与状态流转副作用（product-design.md §6）
@@ -257,6 +317,121 @@ enum SelfTest {
             checkEqual(item.progress, 1, "进度比例钳制到 1")
         }
 
+        // 进度单位（仅影视可选分钟 / 集 / 期；其余类型按类型默认）
+        do {
+            var item = MediaItem(title: "剧集", type: .movie)
+            item.progressCurrent = 7
+            item.progressTotal = 46
+            checkEqual(item.progressText, "7 分钟 / 46 分钟", "默认分钟进度文案")
+            checkEqual(item.progressStep, 10, "分钟步进 ±10")
+            item.progressUnit = .episodes
+            checkEqual(item.progressText, "第 7 / 46 集", "按集进度文案")
+            checkEqual(item.progressUnitLabel, "集", "按集单位文案")
+            checkEqual(item.progressStep, 1, "按集步进 ±1")
+            item.progressUnit = .issues
+            checkEqual(item.progressText, "第 7 / 46 期", "按期进度文案")
+            item.progressUnit = .episodes
+            item.progressCurrent = 50   // 超出总量时文案钳制
+            checkEqual(item.progressText, "第 46 / 46 集", "按集进度超出总量钳制展示")
+        }
+
+        // finish 无条件补满：无总量时清零旧进度残留
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            var item = MediaItem(title: "测试", type: .movie)
+            item.status = .inProgress
+            item.progressCurrent = 30   // 旧数据残留（无总量）
+            store.add(item)
+            store.finish(item)
+            let updated = store.item(for: item.id)
+            checkEqual(updated?.status, .completed, "无总量品完后状态")
+            checkEqual(updated?.progressCurrent, 0, "无总量品完清空进度残留")
+        }
+
+        // updateProgress：无总量时忽略 current 写入
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            let item = MediaItem(title: "测试", type: .movie)
+            store.add(item)
+            store.updateProgress(item, current: 50)
+            let updated = store.item(for: item.id)
+            checkEqual(updated?.progressCurrent, 0, "无总量不写入当前进度")
+            checkEqual(updated?.status, .planned, "无总量不触发流转")
+            checkNil(updated?.lastTastedAt, "无总量无变化不刷新最近品味时间")
+        }
+
+        // setTotal：仅写总量，不截断、不流转、不动最近品味时间
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            var item = MediaItem(title: "测试", type: .movie)
+            item.status = .inProgress
+            item.progressCurrent = 80
+            item.progressTotal = 100
+            item.lastTastedAt = Date(timeIntervalSinceReferenceDate: 700000000)
+            store.add(item)
+            store.setTotal(item, total: 60)
+            let updated = store.item(for: item.id)
+            checkEqual(updated?.progressTotal, 60, "setTotal 写入总量")
+            checkEqual(updated?.progressCurrent, 80, "setTotal 不截断当前进度")
+            checkEqual(updated?.status, .inProgress, "setTotal 不触发流转")
+            checkEqual(updated?.lastTastedAt, Date(timeIntervalSinceReferenceDate: 700000000),
+                       "setTotal 不动最近品味时间")
+            store.setTotal(item, total: -5)
+            checkEqual(store.item(for: item.id)?.progressTotal, 0, "setTotal 负值钳到 0")
+            // 展示层：current 超出 total 时文案钳制，存储不动
+            checkEqual(MediaType.movie.progressText(current: 80, total: 60), "60 分钟 / 60 分钟",
+                       "进度文案超出总量时钳制展示")
+        }
+
+        // 已完成条目进度拉低到总量以下：回落进行中
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            var item = MediaItem(title: "测试", type: .movie)
+            item.status = .completed
+            item.progressCurrent = 100
+            item.progressTotal = 100
+            store.add(item)
+            store.updateProgress(item, current: 50)
+            let updated = store.item(for: item.id)
+            checkEqual(updated?.progressCurrent, 50, "已完成条目进度可拉低")
+            checkEqual(updated?.status, .inProgress, "进度低于总量回落进行中")
+        }
+
+        // lastTastedAt 仅在正增量 / 流转时刷新
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            var item = MediaItem(title: "测试", type: .movie)
+            item.status = .inProgress
+            store.add(item)
+            store.updateProgress(item, current: 40, total: 100)
+            let t1 = store.item(for: item.id)?.lastTastedAt
+            checkNotNil(t1, "正增量刷新最近品味时间")
+
+            store.updateProgress(item, current: 40)     // 无变化
+            checkEqual(store.item(for: item.id)?.lastTastedAt, t1, "无变化不刷新")
+
+            store.updateProgress(item, current: 20)     // 进度减小
+            checkEqual(store.item(for: item.id)?.progressCurrent, 20, "进度可下调")
+            checkEqual(store.item(for: item.id)?.lastTastedAt, t1, "进度减小不刷新")
+
+            store.updateProgress(item, current: 20, total: 120) // 仅设总量
+            checkEqual(store.item(for: item.id)?.lastTastedAt, t1, "仅设总量不刷新")
+
+            store.updateProgress(item, current: 30)     // 再次正增量
+            check(store.item(for: item.id)?.lastTastedAt != t1, "再次正增量刷新")
+        }
+
+        // markTasted：仅记录最近品味时间
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            let item = MediaItem(title: "测试", type: .movie)
+            store.add(item)
+            store.markTasted(item)
+            let updated = store.item(for: item.id)
+            checkNotNil(updated?.lastTastedAt, "markTasted 记录最近品味时间")
+            checkEqual(updated?.status, .planned, "markTasted 不改状态")
+        }
+
         // 手记
         withTempDir { dir in
             let store = LibraryStore(directory: dir)
@@ -286,6 +461,70 @@ enum SelfTest {
             store.backfillCover(id: item.id, path: "/tmp/cover-b.jpg")
             checkEqual(store.item(for: item.id)?.localCoverPath, "/tmp/cover-a.jpg", "封面只回填一次")
         }
+
+        // 资料链接归位：旧版误填进 webURL 的资料站链接搬回 referenceURL，观看链接不动
+        withTempDir { dir in
+            write("""
+            {
+              "schemaVersion": 3,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "旧影视", "type": "影视",
+                  "webURL": "https://movie.douban.com/subject/2210001/" },
+                { "id": "F621E1F8-C36C-495A-93FC-0C247A3E6E60", "title": "手动补的观看链接", "type": "影视",
+                  "webURL": "https://www.youtube.com/watch?v=abc" },
+                { "id": "A621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "伪装域名不动", "type": "影视",
+                  "webURL": "https://notdouban.com/x" }
+              ]
+            }
+            """, in: dir)
+            let store = LibraryStore(directory: dir)
+            let douban = store.items.first { $0.title == "旧影视" }
+            checkNil(douban?.webURL, "豆瓣链接搬出观看链接")
+            checkEqual(douban?.referenceURL, "https://movie.douban.com/subject/2210001/", "豆瓣链接归入资料链接")
+            let youtube = store.items.first { $0.title == "手动补的观看链接" }
+            checkEqual(youtube?.webURL, "https://www.youtube.com/watch?v=abc", "YouTube 观看链接不动")
+            checkNil(youtube?.referenceURL, "YouTube 条目无资料链接")
+            let fake = store.items.first { $0.title == "伪装域名不动" }
+            checkEqual(fake?.webURL, "https://notdouban.com/x", "伪装域名不误搬")
+        }
+    }
+
+    // MARK: - 导入解析（版本校验 / 去重 / 回填）
+
+    @MainActor
+    private static func ioSuite() {
+        print("[导入]")
+
+        let existingID = UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!
+        let json = """
+        {
+          "schemaVersion": 3,
+          "exportedAt": 700000000,
+          "items": [
+            { "id": "\(existingID.uuidString)", "title": "库内已存在", "type": "影视" },
+            { "id": "A621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "新条目", "type": "书籍",
+              "status": "inProgress", "dateAdded": 700000000, "lastViewedDate": 700010000 },
+            { "id": "A621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "文件内重复", "type": "书籍" },
+            { "id": "B621E1F8-C36C-495A-93FC-0C247A3E6E60", "title": "另一条", "type": "音乐" }
+          ]
+        }
+        """
+        do {
+            let items = try LibraryIO.parseImport(json.data(using: .utf8)!, existingIDs: [existingID])
+            checkEqual(items.count, 2, "导入跳过库内已有与文件内重复 id")
+            checkEqual(items[0].title, "新条目", "导入保留顺序")
+            checkEqual(items[0].lastTastedAt, Date(timeIntervalSinceReferenceDate: 700010000),
+                       "导入回填进行中条目的最近品味时间")
+        } catch {
+            check(false, "合法导入应成功", "\(error)")
+        }
+
+        let wrongVersion = #"{ "schemaVersion": 2, "items": [] }"#.data(using: .utf8)!
+        check((try? LibraryIO.parseImport(wrongVersion, existingIDs: [])) == nil, "版本不符拒绝导入")
+
+        let garbage = "not json".data(using: .utf8)!
+        check((try? LibraryIO.parseImport(garbage, existingIDs: [])) == nil, "非 JSON 拒绝导入")
     }
 }
 #endif
