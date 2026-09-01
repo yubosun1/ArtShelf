@@ -62,11 +62,11 @@ struct ContentView: View {
         }
     }
 
-    /// 标题条：46pt 高空白条，红绿灯浮于其左上，顶栏因此整体下移一行、logo 得以靠左
-    ///（概念稿同位置有居中 ARTSHELF 小字，实拍后按反馈去除，仅保留色条）
+    /// 标题条：28pt 高空白条（标准标题栏高度，红绿灯恰好居中），
+    /// 菜单行紧随其后——红绿灯与顶栏之间不留多余空隙
     private var titlebarStrip: some View {
         Theme.titlebar
-            .frame(height: 46)
+            .frame(height: 28)
     }
 
     @ViewBuilder

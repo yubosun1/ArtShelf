@@ -338,6 +338,13 @@ struct DetailView: View {
                 )
                 .onSubmit { commitTotal(item) }
                 .focused($focus, equals: .total)
+                // 输入即生效：合法正整数实时写入总量，进度条随输随现；
+                // 非法/清空不提交，等回车或失焦时由 commitTotal 校准回退
+                .onChange(of: totalInput) { _, text in
+                    if let value = Int(text.trimmingCharacters(in: .whitespaces)), value > 0 {
+                        store.setTotal(item, total: value)
+                    }
+                }
                 // 失焦同样提交，避免只认回车
                 .onChange(of: focus) { was, now in
                     if was == .total, now != .total { commitTotal(item) }
@@ -579,7 +586,9 @@ struct DetailView: View {
 
     /// 在线观看链接：可编辑输入框（回车 / 失焦提交）+ 专属「在线观看」按钮
     private func watchURLRow(_ item: MediaItem) -> some View {
-        HStack(spacing: 12) {
+        // 按钮状态跟随输入框即时值：粘贴后立即可点，不必先回车等落盘
+        let pending = watchInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return HStack(spacing: 12) {
             Image(systemName: "play.rectangle")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.ink3)
@@ -596,19 +605,21 @@ struct DetailView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {
-                if let url = item.webURL { FileService.shared.openURL(url) }
+                // 先落盘输入框里的编辑，再按最新链接打开
+                commitWatchURL(item)
+                FileService.shared.openURL(pending)
             } label: {
                 Label("在线观看", systemImage: "play.fill")
                     .font(Theme.control)
-                    .foregroundStyle(item.webURL == nil ? Theme.ink3 : Theme.amberOn)
+                    .foregroundStyle(pending.isEmpty ? Theme.ink3 : Theme.amberOn)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
-                    .background(item.webURL == nil ? Theme.well : Theme.amberBtn)
+                    .background(pending.isEmpty ? Theme.well : Theme.amberBtn)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(item.webURL == nil)
-            .help(item.webURL == nil ? "先在左侧粘贴观看链接" : "打开观看链接")
+            .disabled(pending.isEmpty)
+            .help(pending.isEmpty ? "先在左侧粘贴观看链接" : "打开观看链接")
         }
         .padding(12)
         .background(Theme.panel)

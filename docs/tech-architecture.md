@@ -96,7 +96,7 @@ Sources/ArtShelf/
 
 ## 6. 窗口与交互
 
-- SwiftUI `Window` 场景单窗口；隐藏工具栏标题，窗口 chrome 为自绘双行（46pt 标题色条 + 菜单行，顶栏与内容区同轴 40）
+- SwiftUI `Window` 场景单窗口；隐藏工具栏标题，窗口 chrome 为自绘双行（28pt 标题色条 + 菜单行紧贴，顶栏与内容区同轴 40）
 - 菜单命令：`.commands` 注册 `⌘1`–`⌘5` 切 Tab、`⌘N` 收录、`⌘F` 聚焦搜索
 - 详情为整版页面（导航栈内切换）；`Esc` 分层关闭（搜索浮层 → 详情 → 收录）
 - 全应用滚动条隐藏（滚动区与笔记输入框 `scrollIndicators(.hidden)`）

@@ -138,7 +138,9 @@ struct LibraryView: View {
                     MediaCardView(item: item)
                 }
             }
-            // 钉住前导对齐：万一列数计算偏差导致网格超宽，也不会居中溢出两边被裁
+            // 钉住前导对齐：fixed 列网格在多余空间里会把列组居中，
+            // frame(maxWidth:alignment:) 对此无效，必须显式给定列组总宽再钉左
+            .frame(width: gridContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 4)   // 给悬停浮起留出余量
             .padding(.bottom, 44)
@@ -147,9 +149,17 @@ struct LibraryView: View {
 
     /// 恒定列宽网格：列数 = max(1, ⌊(可用宽 + 间距) / (列宽 + 间距)⌋)，
     /// 列宽与间距取 Theme 令牌，窗口缩放时仅列数变化、卡片尺寸恒定
+    private var columnCount: Int {
+        max(1, Int(floor((gridWidth + Self.gridSpacing) / (Theme.cardWidth + Self.gridSpacing))))
+    }
+
     private var gridColumns: [GridItem] {
-        let count = max(1, Int(floor((gridWidth + Self.gridSpacing) / (Theme.cardWidth + Self.gridSpacing))))
-        return Array(repeating: GridItem(.fixed(Theme.cardWidth), spacing: Self.gridSpacing), count: count)
+        Array(repeating: GridItem(.fixed(Theme.cardWidth), spacing: Self.gridSpacing), count: columnCount)
+    }
+
+    /// 列组总宽（列宽×列数 + 间距），用于把网格显式钉到容器前导缘
+    private var gridContentWidth: CGFloat {
+        CGFloat(columnCount) * Theme.cardWidth + CGFloat(max(0, columnCount - 1)) * Self.gridSpacing
     }
 
     /// 空库：引导收录第一件
