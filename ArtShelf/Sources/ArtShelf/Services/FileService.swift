@@ -26,10 +26,16 @@ final class FileService: Sendable {
         return NSWorkspace.shared.open(url)
     }
 
-    /// 打开网页链接
+    /// 打开网页链接（仅放行 http/https 且 host 非空，其余 scheme 一律拒绝）
     @discardableResult
     func openURL(_ urlString: String) -> Bool {
-        guard let url = URL(string: urlString) else { return false }
+        guard let url = URL(string: urlString),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              url.host != nil else {
+            Self.logger.error("拒绝打开非 http/https 链接: \(urlString, privacy: .public)")
+            return false
+        }
         return NSWorkspace.shared.open(url)
     }
 
@@ -78,30 +84,29 @@ final class FileService: Sendable {
 
     // MARK: - 打开方式
 
-    /// 根据媒体类型智能打开（接收纯值参数，服务层不依赖数据模型）
+    /// 根据媒体类型智能打开（接收纯值参数，服务层不依赖数据模型）。返回是否成功唤起
+    @discardableResult
     func openMedia(
         localFilePath: String?,
         webURL: String?,
         appleMusicURL: String?,
         type: MediaType
-    ) {
+    ) -> Bool {
         // 优先打开本地文件
         if let localPath = localFilePath,
            FileManager.default.fileExists(atPath: localPath) {
-            openLocalFile(at: localPath)
-            return
+            return openLocalFile(at: localPath)
         }
         // 其次打开在线链接
         if let webURL {
-            openURL(webURL)
-            return
+            return openURL(webURL)
         }
         // 音乐：尝试 Apple Music
         if type == .music, let appleMusic = appleMusicURL {
-            openURL(appleMusic)
-            return
+            return openURL(appleMusic)
         }
         Self.logger.error("没有可打开的文件或链接")
+        return false
     }
 
     /// 判断本地文件是否存在

@@ -36,7 +36,7 @@ enum LibraryMigration {
         case empty                // 无数据文件
         case loaded([MediaItem])  // v3 直接加载
         case migrated([MediaItem])// v2 → v3 迁移成功（调用方应立即落盘为新格式）
-        case failed               // 无法解析（已备份损坏文件）
+        case failed(String)       // 加载失败，值为给用户看的提示文案（损坏已备份 / 版本过新未动原文件）
     }
 
     // MARK: - 加载 / 迁移
@@ -49,15 +49,25 @@ enum LibraryMigration {
         do {
             let data = try Data(contentsOf: file)
 
+            let probe = try? JSONDecoder().decode(HeaderProbe.self, from: data)
+
+            // 前向兼容：schemaVersion 非 nil 且不等于当前值（如未来版本文件被旧版打开）时，
+            // 旧版无法理解新版本专有字段——拒绝加载，绝不备份 / 迁移 / 写盘，
+            // 避免新版本字段被静默丢弃覆盖
+            if let version = probe?.schemaVersion, version != schemaVersion {
+                logger.error("库文件由更新版本写入（schemaVersion \(version)），请升级应用后打开")
+                return .failed("库文件由更新版本的 ArtShelf 写入。原文件未被改动，请升级应用后再打开。")
+            }
+
             // v3：schemaVersion == 3
-            if (try? JSONDecoder().decode(HeaderProbe.self, from: data))?.schemaVersion == schemaVersion {
+            if probe?.schemaVersion == schemaVersion {
                 if let doc = try? JSONDecoder().decode(LibraryDocument.self, from: data) {
                     return .loaded(doc.items)
                 }
                 // 版本头为 v3 但内容无法解析：按损坏处理，不能落入 legacy 分支误生成 v2 备份
                 backupCorrupt(file, in: directory)
                 logger.error("v3 库文件内容无法解析，已备份损坏文件")
-                return .failed
+                return .failed("原始文件已备份在 ~/Library/Application Support/ArtShelf/ 中，当前以空库启动。")
             }
 
             // v2 包装格式 / v1 纯数组
@@ -77,10 +87,10 @@ enum LibraryMigration {
             // 无法解析：备份后启动空库，避免覆盖写丢失数据
             backupCorrupt(file, in: directory)
             logger.error("库文件无法解析，已备份损坏文件")
-            return .failed
+            return .failed("原始文件已备份在 ~/Library/Application Support/ArtShelf/ 中，当前以空库启动。")
         } catch {
             logger.error("读取库文件失败: \(error, privacy: .public)")
-            return .failed
+            return .failed("读取数据文件失败，当前以空库启动。原文件未被改动。")
         }
     }
 
@@ -93,10 +103,11 @@ enum LibraryMigration {
         return item
     }
 
-    // MARK: - 资料链接归位（一次性修正）
+    // MARK: - 资料链接归位（常驻归一化）
 
-    /// 已知资料站域名：语义拆分前这些链接被搜索预填进 webURL「观看链接」，
-    /// 加载时一次性搬回 referenceURL；用户手动补的观看链接（YouTube / B 站等）不受影响
+    /// 已知资料站域名：语义拆分前这些链接被搜索预填进 webURL「观看链接」。
+    /// 每次启动加载后统一归位（幂等——资料站域名永远不会是「观看链接」，
+    /// 已归位或非资料站域名的条目自然跳过）；用户手动补的观看链接（YouTube / B 站等）不受影响
     private static let referenceDomains = ["douban.com", "wikipedia.org", "tvmaze.com", "itunes.apple.com"]
 
     private static func isReferenceHost(_ host: String) -> Bool {

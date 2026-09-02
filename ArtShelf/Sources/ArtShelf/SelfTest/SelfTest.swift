@@ -165,6 +165,27 @@ enum SelfTest {
         }
 
         withTempDir { dir in
+            // 前向兼容：未来版本（schemaVersion 4）文件被旧版打开——拒绝加载，不备份、不写盘
+            let future = """
+            {
+              "schemaVersion": 4,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "未来版本条目", "type": "影视" }
+              ]
+            }
+            """
+            write(future, in: dir)
+            guard case .failed = LibraryMigration.load(from: dir) else {
+                return check(false, "schemaVersion 4 应为 .failed")
+            }
+            let contents = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+            checkEqual(contents.count, 1, "高版本文件不产生任何备份")
+            let raw = try? String(contentsOf: dir.appendingPathComponent("library.json"), encoding: .utf8)
+            checkEqual(raw, future, "高版本原文件未被改动")
+        }
+
+        withTempDir { dir in
             // 未知枚举值落默认值，不拖垮整库解码
             write("""
             {
@@ -383,6 +404,26 @@ enum SelfTest {
                        "进度文案超出总量时钳制展示")
         }
 
+        // switchProgressUnit：单位切换属元数据修改——清零重计量，不流转、不动最近品味时间
+        withTempDir { dir in
+            let store = LibraryStore(directory: dir)
+            var item = MediaItem(title: "测试", type: .movie)
+            item.status = .inProgress
+            item.progressUnit = .episodes
+            item.progressCurrent = 7
+            item.progressTotal = 46
+            item.lastTastedAt = Date(timeIntervalSinceReferenceDate: 700000000)
+            store.add(item)
+            store.switchProgressUnit(item, to: nil)
+            let updated = store.item(for: item.id)
+            checkNil(updated?.progressUnit, "切回分钟后单位清空")
+            checkEqual(updated?.progressCurrent, 0, "切单位后当前进度清零")
+            checkEqual(updated?.progressTotal, 0, "切单位后总量清零")
+            checkEqual(updated?.status, .inProgress, "切单位不触发状态流转")
+            checkEqual(updated?.lastTastedAt, Date(timeIntervalSinceReferenceDate: 700000000),
+                       "切单位不动最近品味时间")
+        }
+
         // 已完成条目进度拉低到总量以下：回落进行中
         withTempDir { dir in
             let store = LibraryStore(directory: dir)
@@ -449,17 +490,24 @@ enum SelfTest {
             check(updated?.notes.isEmpty == true, "删除手记")
         }
 
-        // 封面回填
+        // 封面回填：指向真实文件的路径不覆盖；本地文件被删后允许重新回填
         withTempDir { dir in
             let store = LibraryStore(directory: dir)
+            let realCover = dir.appendingPathComponent("cover-a.jpg")
+            try! Data([0xFF, 0xD8, 0xFF]).write(to: realCover)   // 真实存在的文件
             let item = MediaItem(title: "测试", type: .movie)
             store.add(item)
-            store.backfillCover(id: item.id, path: "/tmp/cover-a.jpg")
-            checkEqual(store.item(for: item.id)?.localCoverPath, "/tmp/cover-a.jpg", "封面回填")
+            store.backfillCover(id: item.id, path: realCover.path)
+            checkEqual(store.item(for: item.id)?.localCoverPath, realCover.path, "封面回填")
 
-            // 已有本地路径时不再覆盖
-            store.backfillCover(id: item.id, path: "/tmp/cover-b.jpg")
-            checkEqual(store.item(for: item.id)?.localCoverPath, "/tmp/cover-a.jpg", "封面只回填一次")
+            // 原路径指向真实存在的文件：保持「只回填一次」
+            store.backfillCover(id: item.id, path: dir.appendingPathComponent("cover-b.jpg").path)
+            checkEqual(store.item(for: item.id)?.localCoverPath, realCover.path, "真实文件不回填覆盖")
+
+            // 本地封面文件被删除：回填允许替换为新路径（删除后重下载恢复）
+            try? FileManager.default.removeItem(at: realCover)
+            store.backfillCover(id: item.id, path: "/tmp/cover-c.jpg")
+            checkEqual(store.item(for: item.id)?.localCoverPath, "/tmp/cover-c.jpg", "缺失文件允许重新回填")
         }
 
         // 资料链接归位：旧版误填进 webURL 的资料站链接搬回 referenceURL，观看链接不动

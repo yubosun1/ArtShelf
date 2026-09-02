@@ -21,6 +21,11 @@ struct DetailView: View {
     @State private var noteText = ""
     @State private var watchInput = ""
 
+    /// 手记草稿按藏品保留：详情内切换藏品时草稿不丢，提交成功后才移除
+    @State private var noteDrafts: [UUID: String] = [:]
+    /// 上一次 syncLocals 同步到的藏品 id（用于归档切换前的草稿）
+    @State private var lastSyncedID: UUID?
+
     /// 焦点目标：总量输入框 / 观看链接输入框（失焦提交）/ 手记编辑器（「记一笔」意图置焦）
     private enum FocusTarget: Hashable { case total, note, watch }
     @FocusState private var focus: FocusTarget?
@@ -193,10 +198,10 @@ struct DetailView: View {
     }
 
     private func commitTags(_ item: MediaItem) {
-        // 支持中文 / 英文逗号，去空白、去重
+        // 支持中文 / 英文逗号与顿号，去空白、去重（与收录表单口径一致）
         var seen = Set<String>()
         let parsed = tagText
-            .split(whereSeparator: { $0 == "，" || $0 == "," })
+            .split(whereSeparator: { $0 == "，" || $0 == "," || $0 == "、" })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
         var copy = item
@@ -292,10 +297,11 @@ struct DetailView: View {
         }
     }
 
-    /// 滑杆双向绑定：拖动即写入进度（副作用收口在 `store.updateProgress`）
+    /// 滑杆双向绑定：拖动即写入进度（副作用收口在 `store.updateProgress`）；
+    /// get 仅展示钳制到总量，存储值不动，避免进度越界时滑杆位置溢出
     private func progressBinding(_ item: MediaItem) -> Binding<Double> {
         Binding(
-            get: { Double(item.progressCurrent) },
+            get: { min(Double(item.progressCurrent), Double(item.progressTotal)) },
             set: { store.updateProgress(item, current: Int($0.rounded())) }
         )
     }
@@ -341,7 +347,9 @@ struct DetailView: View {
                 // 输入即生效：合法正整数实时写入总量，进度条随输随现；
                 // 非法/清空不提交，等回车或失焦时由 commitTotal 校准回退
                 .onChange(of: totalInput) { _, text in
-                    if let value = Int(text.trimmingCharacters(in: .whitespaces)), value > 0 {
+                    if let value = Int(text.trimmingCharacters(in: .whitespaces)), value > 0,
+                       // 与现有总量相同则不写盘，避免 syncLocals 回填同值触发冗余落盘
+                       value != item.progressTotal {
                         store.setTotal(item, total: value)
                     }
                 }
@@ -398,11 +406,7 @@ struct DetailView: View {
             get: { item.progressUnit ?? .minutes },
             set: { newUnit in
                 guard newUnit != (item.progressUnit ?? .minutes) else { return }
-                var copy = item
-                copy.progressUnit = newUnit == .minutes ? nil : newUnit
-                copy.progressCurrent = 0
-                copy.progressTotal = 0
-                store.update(copy)
+                store.switchProgressUnit(item, to: newUnit == .minutes ? nil : newUnit)
                 totalInput = ""
             }
         )
@@ -480,6 +484,8 @@ struct DetailView: View {
         guard !text.isEmpty else { return }
         store.addNote(item, text: text)
         noteText = ""
+        // 已提交，清掉该藏品的未提交草稿
+        noteDrafts.removeValue(forKey: item.id)
     }
 
     private func noteCard(_ item: MediaItem, _ note: NoteEntry) -> some View {
@@ -690,14 +696,24 @@ struct DetailView: View {
     // MARK: - 本地状态同步
 
     /// 详情打开或切换藏品时，把 store 快照写回编辑态（标签 / 总量输入框），
-    /// 并清掉上一藏品的手记草稿与封面主色光晕
+    /// 手记草稿按藏品归档：切换前先存下旧藏品的未提交草稿，再恢复新藏品的草稿；
+    /// 封面主色光晕每次重置
     private func syncLocals() {
+        // 先把上一个藏品的未提交手记归档（空 / 纯空白则移除，不占缓存）
+        if let previousID = lastSyncedID {
+            if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                noteDrafts.removeValue(forKey: previousID)
+            } else {
+                noteDrafts[previousID] = noteText
+            }
+        }
         guard let item else { return }
         tagText = item.tags.joined(separator: "，")
         totalInput = item.progressTotal > 0 ? "\(item.progressTotal)" : ""
         watchInput = item.webURL ?? ""
-        noteText = ""
+        noteText = noteDrafts[item.id] ?? ""
         glowColor = nil
+        lastSyncedID = item.id
     }
 
     /// 「记一笔」意图：落地详情页时自动聚焦手记编辑器，

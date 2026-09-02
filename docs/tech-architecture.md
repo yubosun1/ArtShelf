@@ -55,7 +55,7 @@ Sources/ArtShelf/
 
 存储位置：`~/Library/Application Support/ArtShelf/library.json`（带 `schemaVersion: 3`），与 `covers/` 封面目录并列。
 
-**状态流转副作用统一收口在 Store 层**（`startTasting` / `finish` / `replay` / `updateProgress` / `setTotal` / `markTasted`），视图不直接改状态字段；流转规则见 `product-design.md` §5。
+**状态流转副作用统一收口在 Store 层**（`startTasting` / `finish` / `replay` / `updateProgress` / `setTotal` / `switchProgressUnit` / `markTasted`），视图不直接改状态字段；流转规则见 `product-design.md` §5。
 
 ### 3.2 JSON 导入导出
 
@@ -63,13 +63,14 @@ Sources/ArtShelf/
 - 设置面板提供「导出 JSON / 从 JSON 导入」（`Store/LibraryIO.swift`，NSSavePanel / NSOpenPanel）
 - 导入校验版本头、按 id 去重（库内已有与文件内重复均跳过），进行中条目回填 `lastTastedAt`
 
-### 3.3 迁移与一次性修正
+### 3.3 迁移与归位修正
 
 首次启动检测 `library.json`：
 
 1. v2 / v1 格式：备份原文件为 `library.v2.backup.json`（永不覆盖）→ 字段映射 + 新字段默认值（进度 0、`replayCount` 0、v2 单条笔记转手记、进行中藏品 `lastTastedAt` 回落到最近浏览时间）→ 立即落盘为 v3 格式；`covers/` 目录原样沿用
 2. 文件损坏：备份为 `library.json.corrupt-<时间戳>` 并置 `loadFailed` 由 UI 提示，不碰原文件
-3. **资料链接归位**：语义拆分前资料站链接误填在 `webURL`，加载时按域名边界匹配（douban / wikipedia / tvmaze / itunes / books.google）一次性搬回 `referenceURL`，有改动即落盘
+3. **更高版本文件**：`schemaVersion` 大于当前版本（如新版应用回退旧版打开）→ 记日志、置 `loadFailed`，不迁移、不备份、不写盘，避免新版字段被静默降级丢失
+4. **资料链接归位（常驻规则）**：资料站域名不会是观看入口——每次加载都按域名边界匹配（douban / wikipedia / tvmaze / itunes / books.google）把误入 `webURL` 的资料链接搬回 `referenceURL`，有改动即落盘
 
 迁移器由内置自测覆盖（构造样本 JSON 断言字段映射、默认值、备份与归位行为）。
 

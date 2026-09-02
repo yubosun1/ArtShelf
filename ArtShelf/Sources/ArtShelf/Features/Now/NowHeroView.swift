@@ -31,8 +31,6 @@ struct NowHeroView: View {
 
     // MARK: - 环境色渲染（封面主色虚化铺开）
 
-    // MARK: - 环境色渲染（封面主色虚化铺开）
-
     private var ambient: some View {
         ZStack {
             // 封面自身超大虚化铺底
@@ -210,13 +208,13 @@ struct NowHeroView: View {
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button {
-                FileService.shared.openMedia(
+                // 唤起成功才刷新品味时间，驱动 Hero 与队列排序（§6）
+                guard FileService.shared.openMedia(
                     localFilePath: item.localFilePath,
                     webURL: item.webURL,
                     appleMusicURL: item.appleMusicURL,
                     type: item.type
-                )
-                // 唤起成功即刷新品味时间，驱动 Hero 与队列排序（§6）
+                ) else { return }
                 store.markTasted(item)
             } label: {
                 Label(item.type.continueLabel, systemImage: "play.fill")
@@ -291,7 +289,7 @@ struct NowHeroView: View {
         }
     }
 
-    /// 进行中队列卡片：迷你封面 + 标题 / 元信息 / 进度，点击唤起详情并刷新品味时间
+    /// 进行中队列卡片：迷你封面 + 标题 / 元信息 / 进度，点击进入详情并刷新最近浏览
     private struct QueueCard: View {
 
         let entry: MediaItem
@@ -305,7 +303,6 @@ struct NowHeroView: View {
 
         var body: some View {
             Button {
-                store.markTasted(entry)
                 store.markViewed(entry)
                 appState.openDetail(entry)
             } label: {

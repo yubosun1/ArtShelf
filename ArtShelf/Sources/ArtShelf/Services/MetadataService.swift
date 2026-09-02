@@ -486,7 +486,10 @@ final class MetadataService: Sendable {
 
     /// 取条目首图（海报）。失败就返回 nil，让调用方回退到别的来源。
     private func wikipediaLeadImage(title: String, language: String) async -> String? {
-        guard let encoded = title.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+        // urlPathAllowed 允许 "/"，条目标题含斜杠（如 "50/50 (film)"）会把 REST 路径断成多段，
+        // 编码时从允许字符集中剔除 "/"
+        let allowedPath = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
+        guard let encoded = title.addingPercentEncoding(withAllowedCharacters: allowedPath),
               let url = URL(string: "https://\(language).wikipedia.org/api/rest_v1/page/summary/\(encoded)")
         else { return nil }
 
@@ -603,9 +606,13 @@ final class MetadataService: Sendable {
     }
 
     private func searchGoogleBooks(query: String) async -> [SearchResult] {
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "https://www.googleapis.com/books/v1/volumes?q=\(encoded)&maxResults=20"
-        guard let url = URL(string: urlString) else { return [] }
+        // 用 URLComponents 构造查询（.urlQueryAllowed 不编码 &/+/= 会破坏参数），与同文件其他数据源一致
+        var components = URLComponents(string: "https://www.googleapis.com/books/v1/volumes")
+        components?.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "maxResults", value: "20")
+        ]
+        guard let url = components?.url else { return [] }
 
         do {
             let resp: GoogleBooksResponse = try await fetch(url)
@@ -738,7 +745,7 @@ private extension String {
     }
 
     var removingWikipediaDisambiguation: String {
-        replacingOccurrences(of: #"\s*[（(](?:电影|電影|film)[）)]\s*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+        replacingOccurrences(of: #"\s*[（(](?:电影|電影|电视剧|电视节目|电视连续剧|film)[）)]\s*$"#, with: "", options: [.regularExpression, .caseInsensitive])
     }
 
     var strippingHTML: String {

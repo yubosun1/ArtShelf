@@ -16,8 +16,8 @@ final class LibraryStore {
     /// 全部藏品（只读；修改一律走本类方法）
     private(set) var items: [MediaItem] = []
 
-    /// 数据文件无法解析（已备份损坏文件），供 UI 提示
-    private(set) var loadFailed = false
+    /// 加载失败的提示文案（损坏已备份 / 版本过新未动原文件等），非 nil 时 UI 弹窗提示
+    private(set) var loadFailureMessage: String?
 
     @ObservationIgnored private let directory: URL
     @ObservationIgnored private var saveWorkItem: DispatchWorkItem?
@@ -39,7 +39,8 @@ final class LibraryStore {
         case .empty:
             break
         case .loaded(var items):
-            // 一次性把旧版误填进「观看链接」的资料站链接搬回「资料链接」
+            // 常驻归一化（幂等）：资料站域名永远不会是「观看链接」，
+            // 每次启动都检查归位，有改动才落盘
             let rehomed = LibraryMigration.rehomeReferenceLinks(&items)
             self.items = items
             if rehomed {
@@ -51,8 +52,8 @@ final class LibraryStore {
             self.items = items
             saveNow()   // 立即落盘为 v3 格式
             Self.logger.info("v2→v3 迁移完成，共 \(items.count) 条")
-        case .failed:
-            loadFailed = true
+        case .failed(let message):
+            loadFailureMessage = message
         }
     }
 
@@ -167,6 +168,16 @@ final class LibraryStore {
         mutate(item) { $0.progressTotal = max(0, total) }
     }
 
+    /// 切换影视进度单位（分钟↔集/期）：单位语义变化，进度清零重新计量；
+    /// 属元数据修改——不触发状态流转、不动最近品味时间（product-design.md §6）
+    func switchProgressUnit(_ item: MediaItem, to unit: ProgressUnit?) {
+        mutate(item) {
+            $0.progressUnit = unit
+            $0.progressCurrent = 0
+            $0.progressTotal = 0
+        }
+    }
+
     /// 「继续观赏」唤起媒体后记录最近品味时间（不动状态与进度）
     func markTasted(_ item: MediaItem) {
         mutate(item) { $0.lastTastedAt = Date() }
@@ -196,9 +207,13 @@ final class LibraryStore {
         mutate(item) { $0.lastViewedDate = Date() }
     }
 
-    /// 封面下载成功后回填本地缓存路径
+    /// 封面下载成功后回填本地缓存路径；本地封面文件被删后重下载可重新回填——
+    /// 守卫：原路径为空，或指向的文件已不存在（指向真实文件的路径仍保持「只回填一次」）
     func backfillCover(id: UUID, path: String) {
-        guard let item = item(for: id), item.localCoverPath == nil else { return }
+        guard let item = item(for: id) else { return }
+        if let existing = item.localCoverPath, FileManager.default.fileExists(atPath: existing) {
+            return
+        }
         mutate(item) { $0.localCoverPath = path }
     }
 

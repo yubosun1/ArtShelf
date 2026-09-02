@@ -142,6 +142,8 @@ Spotlight 式即时搜索：`⌘F` 聚焦顶栏搜索框，输入即出下拉结
 
 `MediaItem`：标题、创作者、年份、类型、简介、封面、评分（0–5）、标签、状态、关联文件、**观看链接 `webURL`（手动补）/ 资料链接 `referenceURL`（搜索预填、只读查阅）**、添加与最近浏览时间。
 
+> 链接归位是常驻规则：资料站域名（豆瓣 / 维基 / TVMaze / iTunes / Google Books）不会留在 `webURL`——库加载时一律归位到 `referenceURL`（资料站不是观看入口，即使用户误填也按此纠正）。
+
 v3 关键字段：
 
 - **进度 `progressCurrent` / `progressTotal` / `progressUnit`**：影视可选分钟 / 集 / 期，书籍=页、音乐=音轨，折算 0–1 展示

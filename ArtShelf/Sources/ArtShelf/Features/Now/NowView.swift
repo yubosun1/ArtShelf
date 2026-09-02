@@ -166,18 +166,11 @@ struct StatsStrip: View {
 
     private var inProgressCount: Int { items.filter { $0.status == .inProgress }.count }
 
-    private var addedThisMonth: Int {
-        let cal = Calendar.current
-        return items.filter { cal.isDate($0.dateAdded, equalTo: Date(), toGranularity: .month) }.count
-    }
+    private var addedThisMonth: Int { LibraryStats.addedThisMonth(items) }
 
-    private var noteCount: Int { items.reduce(0) { $0 + $1.notes.count } }
+    private var noteCount: Int { LibraryStats.noteCount(items) }
 
-    private var averageRating: Double? {
-        let rated = items.filter { $0.rating > 0 }
-        guard !rated.isEmpty else { return nil }
-        return Double(rated.reduce(0) { $0 + $1.rating }) / Double(rated.count)
-    }
+    private var averageRating: Double? { LibraryStats.averageRating(items) }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -217,7 +210,7 @@ struct StatsStrip: View {
                 if let badge {
                     Text(badge)
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(nsColor: .systemGreen))
+                        .foregroundStyle(Theme.positive)
                         .padding(.leading, 3)
                 }
             }

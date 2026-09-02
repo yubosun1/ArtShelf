@@ -59,6 +59,11 @@ enum Theme {
         }
     }
 
+    /// 错误提示（表单校验等）
+    static let danger = dynamic(light: hex(0xC03A2E), dark: hex(0xE0685C))
+    /// 正向增长指示（统计「本月新增」等）；复用状态徽标绿色系，避免双套色值
+    static var positive: Color { doneTx }
+
     // MARK: - 品牌棱镜与类型代表色
 
     /// 品牌棱镜渐变六色（顶栏 / 设置 Logo，与概念稿 conic-gradient 一致）

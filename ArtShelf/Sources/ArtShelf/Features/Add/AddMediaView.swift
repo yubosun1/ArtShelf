@@ -259,15 +259,16 @@ struct AddMediaView: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    // 年份非空但解析失败时给出轻提示，不静默丢弃（确认时 year 留空而非错值）
+                    // 年份为空、非数字或超出 1–9999 时给出轻提示，不静默丢弃（确认时 year 留空而非错值）
                     VStack(alignment: .leading, spacing: 4) {
                         fieldBox {
                             TextField("年份", text: $draft.year)
                         }
-                        if !draft.year.trimmed.isEmpty && Int(draft.year.trimmed) == nil {
-                            Text("年份需为数字")
+                        if !draft.year.trimmed.isEmpty,
+                           Int(draft.year.trimmed).map({ (1...9999).contains($0) }) != true {
+                            Text("年份需为 1–9999 的数字")
                                 .font(Theme.cardMeta)
-                                .foregroundStyle(Color.red)
+                                .foregroundStyle(Theme.danger)
                         }
                     }
                     .frame(width: 100, alignment: .leading)
@@ -516,7 +517,7 @@ struct AddMediaView: View {
         isExtractingCover = true
         coverMessage = nil
         epubTask = Task {
-            // 子任务继承取消状态：父任务取消后 EPUBService 在关键节点放弃解压写盘
+            // 取消经 withTaskCancellationHandler 显式转发：父任务取消后 EPUBService 在关键节点放弃解压写盘
             let coverPath = await EPUBService.shared.extractCoverAsync(from: path)
             // 只接受最新一次提取的回写：被取代 / 已取消的旧任务直接丢弃
             guard sequence == epubSequence else { return }
@@ -524,8 +525,13 @@ struct AddMediaView: View {
             isExtractingCover = false
             guard !Task.isCancelled else { return }
             if let coverPath {
-                applyLocalCover(coverPath)
-                coverMessage = "已从 EPUB 提取封面"
+                // 用户已手选封面或已有搜索预填封面时不覆盖，仅提示
+                if draft.localCoverPath == nil && draft.coverURL.isEmpty {
+                    applyLocalCover(coverPath)
+                    coverMessage = "已从 EPUB 提取封面"
+                } else {
+                    coverMessage = "已保留当前封面，未应用 EPUB 提取结果"
+                }
             } else {
                 coverMessage = "未能从该 EPUB 中提取封面"
             }
@@ -715,7 +721,9 @@ struct AddMediaView: View {
 
         var item = MediaItem(title: title, type: selectedType)
         item.creator = draft.creator.trimmed.nilIfEmpty
-        item.year = Int(draft.year.trimmingCharacters(in: .whitespaces))
+        // 年份校验：非数字或超出 1–9999 一律不收录（表单有轻提示）
+        let parsedYear = Int(draft.year.trimmingCharacters(in: .whitespaces))
+        item.year = (parsedYear.map { (1...9999).contains($0) } ?? false) ? parsedYear : nil
         item.synopsis = draft.synopsis.trimmed.nilIfEmpty
         item.genre = draft.genre.trimmed.nilIfEmpty
         item.coverURL = draft.coverURL.trimmed.nilIfEmpty
@@ -758,8 +766,13 @@ struct AddMediaView: View {
     }
 
     private func applyLocalCover(_ path: String) {
+        // 图片文件读不出来就不写路径，避免坏图入库；成功才落盘并展示预览
+        guard let image = NSImage(contentsOfFile: path) else {
+            coverMessage = "无法读取该图片文件"
+            return
+        }
         draft.localCoverPath = path
-        coverPreview = NSImage(contentsOfFile: path)
+        coverPreview = image
     }
 
     /// 各类型可关联的本地文件扩展名
@@ -957,6 +970,8 @@ private struct RemoteThumbnailView: View {
             }
             do {
                 var request = URLRequest(url: url)
+                // 缩略图下载超时 8 秒，与服务层口径一致
+                request.timeoutInterval = 8
                 // 豆瓣图床无 Referer 返回 418（实测），需要声明来源页
                 if url.host?.hasSuffix("doubanio.com") == true {
                     request.setValue("https://www.douban.com/", forHTTPHeaderField: "Referer")

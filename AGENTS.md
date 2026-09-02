@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-ArtShelf —— macOS 原生个人媒体策展应用（影视 / 音乐 / 书籍），100% 本地优先，零云端、无遥测。当前版本 **v3.1.0**（沉浸暗房：封面即主角、五套完整主题、图标动态切换、JSON 数据层）。
+ArtShelf —— macOS 原生个人媒体策展应用（影视 / 音乐 / 书籍），100% 本地优先，零云端、无遥测。当前版本 **v3.1.1**（沉浸暗房：封面即主角、五套完整主题、图标动态切换、JSON 数据层）。
 
 ## 构建与运行
 
@@ -22,7 +22,7 @@ cd ArtShelf && swift run ArtShelf --render-preview <目录>  # 离屏渲染各�
 - **零第三方依赖**：纯 Swift + 系统框架（SwiftUI / AppKit / Foundation）。新增任何依赖前先讨论
 - **数据边界**：用户数据只存于本机 `~/Library/Application Support/ArtShelf/`；仓库中绝不提交真实收藏数据、封面缓存或笔记内容（README 截图等一律用 `--render-preview` 演示数据渲染图）
 - **设计令牌**：颜色 / 字体 / 间距 / 圆角统一定义在 `ArtShelf/Sources/ArtShelf/DesignSystem/Theme.swift`，调色板按五套完整主题组织（`ThemeSettings.swift` 的 `ThemePalette`），视图里禁止散落硬编码色值
-- **状态流转收口**：状态与进度的副作用一律经 `LibraryStore` 方法（`startTasting` / `finish` / `replay` / `updateProgress` / `setTotal` / `markTasted`），视图不直接改状态字段；流转规则见 `docs/product-design.md` §6
+- **状态流转收口**：状态与进度的副作用一律经 `LibraryStore` 方法（`startTasting` / `finish` / `replay` / `updateProgress` / `setTotal` / `switchProgressUnit` / `markTasted`），视图不直接改状态字段；流转规则见 `docs/product-design.md` §6
 - **文案与注释**：UI 文案与代码注释使用简体中文；标识符、类型名使用英文
 - **提交信息**：Conventional Commits + 中文描述（如 `feat: 新增…` / `chore: …` / `docs: …`）
 - **版本递进**：版本号三段 `大.中.小`，按更新性质递增——大版本：整体重构 / 方向性变更；中版本：新功能；小版本：修复与小调整。改 `Resources/Info.plist` 的 `CFBundleShortVersionString`，同时 `CFBundleVersion` 整数 +1，README 徽章、`SettingsView` 兜底版本号、AGENTS.md 项目简介三处同步；功能更新完成即提交 git

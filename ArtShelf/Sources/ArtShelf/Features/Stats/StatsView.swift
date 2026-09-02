@@ -11,21 +11,14 @@ struct StatsView: View {
 
     // MARK: - 派生统计
 
-    /// 本月新增件数（与「此刻」数据条同口径）
-    private var addedThisMonth: Int {
-        let cal = Calendar.current
-        return store.items.filter { cal.isDate($0.dateAdded, equalTo: Date(), toGranularity: .month) }.count
-    }
+    /// 本月新增件数（与「此刻」数据条同口径，见 LibraryStats）
+    private var addedThisMonth: Int { LibraryStats.addedThisMonth(store.items) }
 
     /// 策展笔记总数
-    private var noteCount: Int { store.items.reduce(0) { $0 + $1.notes.count } }
+    private var noteCount: Int { LibraryStats.noteCount(store.items) }
 
     /// 平均评分（仅统计已评分条目，即 rating > 0）
-    private var averageRating: Double? {
-        let rated = store.items.filter { $0.rating > 0 }
-        guard !rated.isEmpty else { return nil }
-        return Double(rated.reduce(0) { $0 + $1.rating }) / Double(rated.count)
-    }
+    private var averageRating: Double? { LibraryStats.averageRating(store.items) }
 
     /// 已评分条目数
     private var ratedCount: Int { store.items.filter { $0.rating > 0 }.count }
@@ -49,7 +42,9 @@ struct StatsView: View {
     /// 重温总次数
     private var replayTotal: Int { store.items.reduce(0) { $0 + $1.replayCount } }
 
-    /// 最常品味类型（进行中 + 已完成最多者；尚未开品味任何条目时为 nil）
+    /// 最常品味类型（进行中 + 已完成最多者；尚未开品味任何条目时为 nil）。
+    /// 并列时按 MediaType 声明顺序（影视 / 音乐 / 书籍）取先声明者：
+    /// max(by:) 对并列比较器返回 false，保留先见到的类型
     private var mostTastedType: MediaType? {
         let tasted = store.items.filter { $0.status != .planned }
         guard !tasted.isEmpty else { return nil }

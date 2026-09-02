@@ -50,16 +50,16 @@ struct ContentView: View {
         .onAppear {
             // 单行 chrome：全尺寸内容视图 + 红绿灯下移与顶栏同轴
             WindowChrome.apply()
-            // 库文件无法解析时提示（原始文件已备份，未做任何覆盖）
-            showLoadFailure = store.loadFailed
+            // 库加载失败时提示（文案由迁移器按原因给出：损坏已备份 / 版本过新未动原文件）
+            showLoadFailure = store.loadFailureMessage != nil
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             store.flush()
         }
-        .alert("数据文件无法解析", isPresented: $showLoadFailure) {
+        .alert("数据未能加载", isPresented: $showLoadFailure) {
             Button("好", role: .cancel) {}
         } message: {
-            Text("原始文件已备份在 ~/Library/Application Support/ArtShelf/ 中，当前以空库启动。")
+            Text(store.loadFailureMessage ?? "")
         }
     }
 
@@ -79,7 +79,7 @@ struct ContentView: View {
         }
     }
 
-    /// Esc 层级：先清搜索，再关详情（搜索浮层仅在详情未打开时渲染，此处口径一致）
+    /// Esc 层级：详情打开时优先关详情，否则清搜索（搜索浮层仅在详情未打开时渲染，此处口径一致）
     @ViewBuilder
     private var escHandlers: some View {
         if !appState.searchText.isEmpty, appState.detailItemID == nil {

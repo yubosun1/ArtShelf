@@ -16,8 +16,9 @@ final class ScrollbarSanitizer: NSObject {
 
     static let shared = ScrollbarSanitizer()
 
-    /// 已挂 KVO 的滚动视图，避免重复注册（NSScrollView 生命周期与 App 一致，无需移除）
-    private var observed = Set<ObjectIdentifier>()
+    /// 已挂 KVO 的滚动视图，避免重复注册（弱引用：滚动视图随页面关闭销毁后自动回收，
+    /// 不像 ObjectIdentifier 集合那样永久残留）
+    private let observed = NSHashTable<NSScrollView>.weakObjects()
     private var installed = false
     private var safetyTimer: Timer?
 
@@ -76,7 +77,9 @@ final class ScrollbarSanitizer: NSObject {
     @MainActor
     private static func attach(_ scroll: NSScrollView) {
         let sanitizer = ScrollbarSanitizer.shared
-        if sanitizer.observed.insert(ObjectIdentifier(scroll)).inserted {
+        // 弱引用表访问时自动清理已释放对象；未挂过的视图才注册 KVO
+        if !sanitizer.observed.contains(scroll) {
+            sanitizer.observed.add(scroll)
             scroll.addObserver(sanitizer, forKeyPath: "hasVerticalScroller", options: [], context: nil)
             scroll.addObserver(sanitizer, forKeyPath: "hasHorizontalScroller", options: [], context: nil)
         }
@@ -92,8 +95,9 @@ final class ScrollbarSanitizer: NSObject {
         change: [NSKeyValueChangeKey: Any]?,
         context: UnsafeMutableRawPointer?
     ) {
-        // 不捕获 nonisolated 入参（Swift 6 发送检查）；无论哪个滚动视图变化，全量复查一次即可
-        MainActor.assumeIsolated {
+        // KVO 回调线程不保证在主线程：跳板回主线程处理，不能 assumeIsolated 直接断言；
+        // 不捕获 nonisolated 入参（Swift 6 发送检查），无论哪个滚动视图变化，全量复查一次即可
+        Task { @MainActor in
             for window in NSApp.windows {
                 Self.discover(window.contentView)
             }

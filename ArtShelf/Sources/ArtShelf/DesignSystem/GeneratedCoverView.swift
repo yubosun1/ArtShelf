@@ -64,6 +64,8 @@ struct GeneratedCoverView: View {
                     VStack(alignment: .leading, spacing: geo.size.width * 0.02) {
                         Text(title)
                             .font(.system(size: geo.size.width * 0.082, weight: .semibold))
+                            .lineLimit(2)            // 超长标题两行截断，避免溢出渐变区被裁
+                            .truncationMode(.tail)
                             .tracking(geo.size.width * 0.006)
                         if let year {
                             Text(year)

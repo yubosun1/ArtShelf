@@ -74,6 +74,8 @@ struct MediaCardView: View {
         }
         .confirmationDialog("确定删除「\(item.title)」？", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("删除", role: .destructive) {
+                // 磁盘封面由 store.delete 清理，内存缓存（含主色）一并逐出
+                CoverImageLoader.evict(id: item.id)
                 store.delete(item)
             }
             Button("取消", role: .cancel) {}
@@ -107,8 +109,12 @@ struct MediaCardView: View {
             Button("再看一遍") { store.replay(item) }
         }
         Button("记一笔") {
-            // 等右键菜单收起后再弹浮层，避免 popover 在菜单收尾动画期间无法呈现
-            DispatchQueue.main.async { notePopover = true }
+            // 等右键菜单收起后再弹浮层，避免 popover 在菜单收尾动画期间无法呈现；
+            // 菜单操作间隙藏品可能已被删除（如其他入口），弹出前确认仍在库
+            DispatchQueue.main.async {
+                guard store.item(for: item.id) != nil else { return }
+                notePopover = true
+            }
         }
         Divider()
         Button("删除…", role: .destructive) { confirmDelete = true }

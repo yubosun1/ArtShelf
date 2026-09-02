@@ -97,18 +97,41 @@ final class LinkMetadataService: Sendable {
 
         var searchRange = html.startIndex..<html.endIndex
         while let matchRange = html.range(of: pattern, options: .caseInsensitive, range: searchRange) {
+            // 防止 data-property="og:title" 之类误命中：前一个字符必须是空白或 <
+            let prevOK: Bool
+            if matchRange.lowerBound > html.startIndex {
+                let prev = html[html.index(before: matchRange.lowerBound)]
+                prevOK = prev.isWhitespace || prev == "<"
+            } else {
+                prevOK = false
+            }
+            guard prevOK else {
+                searchRange = matchRange.upperBound..<html.endIndex
+                continue
+            }
             // 向后找最近的 <meta 标签起点
             let prefix = String(html[html.startIndex..<matchRange.lowerBound])
             guard let metaStart = prefix.range(of: "<meta", options: [.backwards, .caseInsensitive])?.lowerBound else {
                 return nil
             }
-            // 找到该标签的结束点（下一个 > 或 />）
-            let tagEndRange = html.range(
-                of: ">",
-                options: .caseInsensitive,
-                range: metaStart..<html.endIndex
-            )
-            guard let tagEnd = tagEndRange?.lowerBound else { return nil }
+            // 按引号配对扫描标签结束点：content 值内含 > 时不提前截断
+            var tagEnd: String.Index?
+            var cursor = metaStart
+            var inDoubleQuote = false
+            var inSingleQuote = false
+            while cursor < html.endIndex {
+                let ch = html[cursor]
+                if ch == "\"" && !inSingleQuote {
+                    inDoubleQuote.toggle()
+                } else if ch == "'" && !inDoubleQuote {
+                    inSingleQuote.toggle()
+                } else if ch == ">" && !inDoubleQuote && !inSingleQuote {
+                    tagEnd = cursor
+                    break
+                }
+                cursor = html.index(after: cursor)
+            }
+            guard let tagEnd else { return nil }
             let tag = String(html[metaStart..<tagEnd])
 
             // 在标签内找 content="..."
@@ -152,7 +175,7 @@ final class LinkMetadataService: Sendable {
     /// 回退：取 <title>...</title>
     private func htmlTitle(in html: String) -> String? {
         guard let open = html.range(of: "<title", options: .caseInsensitive),
-              let closeOpen = html.range(of: ">", range: open.upperBound..<html.endIndex)?.lowerBound,
+              let closeOpen = html.range(of: ">", range: open.upperBound..<html.endIndex)?.upperBound,
               let close = html.range(of: "</title>", options: .caseInsensitive, range: closeOpen..<html.endIndex)?.lowerBound else {
             return nil
         }

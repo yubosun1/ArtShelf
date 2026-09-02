@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 import os
 
@@ -15,12 +16,18 @@ final class EPUBService: Sendable {
     // MARK: - 异步提取（主线程调用）
 
     /// 异步提取（主线程调用）。
-    /// 用结构化子任务替代 Task.detached：子任务继承父任务取消状态，
-    /// 父任务取消后 extractCover 在关键节点检查 Task.isCancelled 放弃，不再继续解压写盘。
+    /// 用一个非结构化任务包装同步的 extractCover；取消经 withTaskCancellationHandler
+    /// 显式转发给内部任务，父任务取消后 extractCover 在关键节点检查 Task.isCancelled
+    /// 放弃，不再继续解压写盘。
     func extractCoverAsync(from epubPath: String) async -> String? {
-        await Task(priority: .userInitiated) {
+        let task = Task(priority: .userInitiated) {
             self.extractCover(from: epubPath)
-        }.value
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     // MARK: - 同步提取（后台线程调用）
@@ -64,7 +71,8 @@ final class EPUBService: Sendable {
 
         if Task.isCancelled { return nil }
 
-        let ext = coverURL.pathExtension.isEmpty ? "jpg" : coverURL.pathExtension
+        // OPF 内 item 的扩展名不可信（可能指向 .xhtml 等），先按数据魔数确定实际格式
+        let ext = Self.imageFileExtension(for: imageData, fallback: coverURL.pathExtension)
         let coverFile = LibraryPaths.coversDirectory
             .appendingPathComponent("\(UUID().uuidString).\(ext)")
         do {
@@ -82,6 +90,25 @@ final class EPUBService: Sendable {
         return coverFile.path
     }
 
+    // MARK: - 图片格式嗅探
+
+    /// 按魔数嗅探图片实际格式决定扩展名（JPEG=FF D8 FF，PNG=89 50 4E 47，
+    /// GIF=47 49 46 38，WebP=RIFF????WEBP，BMP=42 4D）；
+    /// 嗅探不到时回退 href 原扩展名（限白名单），白名单外统一用 jpg
+    private static func imageFileExtension(for data: Data, fallback: String) -> String {
+        let prefix = [UInt8](data.prefix(16))
+        if prefix.count >= 3, prefix[0] == 0xFF, prefix[1] == 0xD8, prefix[2] == 0xFF { return "jpg" }
+        if prefix.count >= 4, prefix[0] == 0x89, prefix[1] == 0x50, prefix[2] == 0x4E, prefix[3] == 0x47 { return "png" }
+        if prefix.count >= 4, prefix[0] == 0x47, prefix[1] == 0x49, prefix[2] == 0x46, prefix[3] == 0x38 { return "gif" }
+        if prefix.count >= 12, prefix[0] == 0x52, prefix[1] == 0x49, prefix[2] == 0x46, prefix[3] == 0x46,
+           prefix[8] == 0x57, prefix[9] == 0x45, prefix[10] == 0x42, prefix[11] == 0x50 { return "webp" }
+        if prefix.count >= 2, prefix[0] == 0x42, prefix[1] == 0x4D { return "bmp" }
+
+        let allowed: Set<String> = ["jpg", "jpeg", "png", "gif", "webp", "bmp"]
+        let lower = fallback.lowercased()
+        return allowed.contains(lower) ? lower : "jpg"
+    }
+
     // MARK: - 解压
 
     private func unzip(at epubPath: String, to destinationURL: URL) -> Bool {
@@ -91,11 +118,10 @@ final class EPUBService: Sendable {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
         process.arguments = ["-o", "-q", epubPath, "-d", destinationURL.path]
 
-        // 同时管道 stdout 和 stderr，防止管道缓冲区满导致死锁
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+        // 输出重定向到 nullDevice：unzip -q 输出量小且无需读取，
+        // 避免管道缓冲区写满后进程阻塞
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
 
         do {
             try process.run()
@@ -125,11 +151,20 @@ final class EPUBService: Sendable {
 
     // MARK: - 查找封面图
 
+    /// 解码 EPUB 内 XML 文本：部分中文 EPUB 使用 GBK / UTF-16 编码，
+    /// 依次尝试 UTF-8 → UTF-16 → GB18030，避免仅按 UTF-8 解码失败而丢封面
+    private func decodeXMLText(_ data: Data) -> String? {
+        if let text = String(data: data, encoding: .utf8) { return text }
+        if let text = String(data: data, encoding: .utf16) { return text }
+        let gb18030 = String.Encoding(rawValue: UInt(CFStringEncodings.GB_18030_2000.rawValue))
+        return String(data: data, encoding: gb18030)
+    }
+
     private func findCoverImagePath(in rootDir: URL) -> String? {
         // 1. 读取 META-INF/container.xml
         let containerURL = rootDir.appendingPathComponent("META-INF/container.xml")
         guard let containerData = try? Data(contentsOf: containerURL),
-              let containerXML = String(data: containerData, encoding: .utf8) else {
+              let containerXML = decodeXMLText(containerData) else {
             return nil
         }
 
@@ -140,7 +175,7 @@ final class EPUBService: Sendable {
         // 2. 读取 OPF 文件
         let opfURL = rootDir.appendingPathComponent(opfRelativePath)
         guard let opfData = try? Data(contentsOf: opfURL),
-              let opfXML = String(data: opfData, encoding: .utf8) else {
+              let opfXML = decodeXMLText(opfData) else {
             return nil
         }
 
@@ -333,6 +368,14 @@ final class EPUBService: Sendable {
         // 安全地构造路径（避免 Obj-C 异常）
         let opfDirPath = opfDir.path
         let fullPath = (opfDirPath as NSString).appendingPathComponent(decoded)
+
+        // 越界防护：href 含 ../ 时可解析到解压目录之外，读到共享临时目录中的同名文件。
+        // 标准化后必须仍位于解压根目录内，否则视为无效路径（合法的 ../ 仍放行）
+        let standardized = URL(fileURLWithPath: fullPath).standardizedFileURL.path
+        let rootStandardized = rootDir.standardizedFileURL.path
+        guard standardized == rootStandardized || standardized.hasPrefix(rootStandardized + "/") else {
+            return nil
+        }
 
         // 转换为相对于 rootDir 的路径
         let rootPath = rootDir.path
