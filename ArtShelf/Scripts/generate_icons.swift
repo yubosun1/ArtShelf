@@ -319,10 +319,5 @@ saveImage(ivory, to: "\(outDir)/prism_ivory.png")
 let sky = generatePrismIcon(theme: .sky)
 saveImage(sky, to: "\(outDir)/prism_sky.png")
 
-let rose = generatePrismIcon(theme: .rose)
-saveImage(rose, to: "\(outDir)/prism_rose.png")
+print("Official app icons (ivory & sky) generated successfully into \(outDir)!")
 
-let dark = generatePrismIcon(theme: .dark)
-saveImage(dark, to: "\(outDir)/prism_dark.png")
-
-print("Official app icons generated successfully into \(outDir)!")
