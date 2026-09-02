@@ -25,7 +25,7 @@ cd ArtShelf && swift run ArtShelf --render-preview <目录>  # 离屏渲染各�
 - **状态流转收口**：状态与进度的副作用一律经 `LibraryStore` 方法（`startTasting` / `finish` / `replay` / `updateProgress` / `setTotal` / `markTasted`），视图不直接改状态字段；流转规则见 `docs/product-design.md` §6
 - **文案与注释**：UI 文案与代码注释使用简体中文；标识符、类型名使用英文
 - **提交信息**：Conventional Commits + 中文描述（如 `feat: 新增…` / `chore: …` / `docs: …`）
-- **版本递进**：每次功能更新必须递增版本号并提交 git——`Resources/Info.plist` 的 `CFBundleShortVersionString`（语义化版本）与 `CFBundleVersion`（整数 +1），README 徽章、`SettingsView` 兜底版本号、AGENTS.md 项目简介三处同步
+- **版本递进**：版本号三段 `大.中.小`，按更新性质递增——大版本：整体重构 / 方向性变更；中版本：新功能；小版本：修复与小调整。改 `Resources/Info.plist` 的 `CFBundleShortVersionString`，同时 `CFBundleVersion` 整数 +1，README 徽章、`SettingsView` 兜底版本号、AGENTS.md 项目简介三处同步；功能更新完成即提交 git
 
 ## 目录结构
 
