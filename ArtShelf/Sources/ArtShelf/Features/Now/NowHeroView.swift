@@ -1,16 +1,20 @@
 import SwiftUI
 
-/// 「此刻」Hero：最近品味中的藏品全景 —— 大封面 + 环境色渲染 + 进度 + 快捷动作
+/// 「此刻」Hero：最近品味中的藏品全景 —— 大封面 + 进度 + 快捷动作
+///
+/// 环境光渲染已上移到 NowView 的整页氛围场（封面取色经 `glowColor` 绑定上报）；
+/// Hero 自身不带背景，与分节、数据条同处在一个连续光场中，无横向分层。
 struct NowHeroView: View {
 
     let item: MediaItem
     /// 其余进行中藏品（队列卡片）
     let queue: [MediaItem]
+    /// 封面主色（取色回调上报给 NowView 的整页氛围场；本视图同时用于封面光晕）
+    @Binding var glowColor: Color?
 
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
     @Environment(\.colorScheme) private var scheme
-    @State private var glowColor: Color?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,69 +27,6 @@ struct NowHeroView: View {
         .padding(.horizontal, Theme.contentPadding)
         .padding(.top, 44)
         .padding(.bottom, 40)
-        .background(ambient)
-    }
-
-    // MARK: - 环境色渲染（封面主色虚化铺开）
-
-    private var ambient: some View {
-        ZStack {
-            // 封面自身超大虚化铺底
-            CoverImageView(item: item, cornerRadius: 0, showsPlaceholderText: false)
-                .scaledToFill()
-                .blur(radius: 100)
-                .opacity(0.40)
-
-            // 三层戏剧化径向渐变（完全对齐 Demo .hero .ambient：左中主色扩散、右下次色烘托、右上微光点缀）
-            if let glowColor {
-                let primary = glowColor
-                let secondary = derivedSecondaryColor(from: glowColor)
-
-                // 1. 左侧大面积主色光团（22% 30%）
-                RadialGradient(
-                    colors: [primary.opacity(0.60), .clear],
-                    center: .init(x: 0.22, y: 0.30),
-                    startRadius: 30, endRadius: 600
-                )
-                // 2. 右下方深层冷暖对比次色（70% 110%）
-                RadialGradient(
-                    colors: [secondary.opacity(0.48), .clear],
-                    center: .init(x: 0.70, y: 1.05),
-                    startRadius: 40, endRadius: 520
-                )
-                // 3. 右上方琥珀暖调微光（85% 10%）—— Demo signature: rgba(232,163,61,.16)
-                RadialGradient(
-                    colors: [Theme.amberBtn.opacity(0.22), .clear],
-                    center: .init(x: 0.85, y: 0.10),
-                    startRadius: 20, endRadius: 380
-                )
-            }
-        }
-        .opacity(Theme.ambientOpacity(scheme))
-        // 顶部渐入、底部淡出：环境光从画布中自然浮现，到达分区之前散尽，
-        // 上下都不硬切、不与邻区形成色带分层
-        .mask(
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .white, location: 0.16),
-                    .init(color: .white, location: 0.62),
-                    .init(color: .clear, location: 0.94)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-        )
-        .clipped()
-    }
-
-    /// 根据主色衍生互补/调和的暗调次级色，使暗房光影具有丰富的空间景深感
-    private func derivedSecondaryColor(from color: Color) -> Color {
-        let ns = NSColor(color)
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-        let shiftedHue = fmod(h + 0.38, 1.0)
-        let secNS = NSColor(hue: shiftedHue, saturation: min(1.0, s * 0.9), brightness: max(0.25, b * 0.5), alpha: a)
-        return Color(nsColor: secNS)
     }
 
     // MARK: - 主舞台

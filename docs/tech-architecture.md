@@ -80,7 +80,7 @@ Sources/ArtShelf/
 - **外观主题**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 键 `appTheme`）提供跟随系统 / 白昼放映厅 / 暗房，每套给齐整套 `ThemePalette`（bg/panel/ink×3/rule/well/track）；非「跟随系统」主题各自锁定浅 / 深 `NSApplication.appearance`，窗口 chrome 与 `colorScheme` 环境随之一致
 - **应用图标切换**：`DesignSystem/AppIcon.swift` 提供象牙画廊与晴空微晶两款图标，设置内点选即 `NSApplication.applicationIconImage` 动态替换，UserDefaults（`appIcon`）持久化，启动时随 `applyAppearance()` 应用
 - **封面主色光晕**：`NSImage+AverageColor.swift` 以 `CIAreaAverage` 降采样取主色，按令牌强度渲染
-- **Hero 环境渲染**：封面图放大 + `.blur(radius:)` + 径向渐变叠色，顶部渐入、底部渐隐融入画布；「此刻」分节标题与库页页头另以 `DesignSystem/AmbientGlow.swift` 铺类型代表色淡光晕（库页光晕固定于视口顶部并溢出至透明顶栏后方）
+- **环境渲染**：「此刻」整页氛围场由 `NowView` 绘制——封面图放大 + `.blur(radius:)` + 径向渐变叠色铺满全窗（向上溢出至透明顶栏后方），纵向渐变向画布色连续沉降，Hero 封面取色经绑定由 `NowHeroView` 上报；库页以 `DesignSystem/AmbientGlow.swift` 铺类型代表色页头光晕 + 全页基调 wash（同法溢出顶栏）
 - **字体**：系统字体栈，不设自定义字体
 
 ## 5. 元数据来源（零 API Key）

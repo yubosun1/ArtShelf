@@ -1,10 +1,17 @@
 import SwiftUI
 
 /// 「此刻」首页：Hero（正在品味）+ 进行中队列 + 三类精选 + 数据条
+///
+/// 整页共享 Hero 封面的环境光——全窗连续氛围场（封面虚化铺底 + 主色径向光团 +
+/// 纵向向画布色沉降），向上溢出至透明顶栏后方。分节标题与 Hero 处在同一光场里，
+/// 没有各自为战的色块，也就没有横向明暗分层。
 struct NowView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
+    @Environment(\.colorScheme) private var scheme
+    /// Hero 封面主色（由 NowHeroView 取色上报，驱动整页氛围场与 Hero 封面光晕）
+    @State private var heroGlow: Color?
 
     /// 进行中藏品，按最近品味时间倒序（第一个即 Hero）
     private var inProgress: [MediaItem] {
@@ -17,7 +24,7 @@ struct NowView: View {
         ScrollView {
             VStack(spacing: 0) {
                 if let hero = inProgress.first {
-                    NowHeroView(item: hero, queue: Array(inProgress.dropFirst()))
+                    NowHeroView(item: hero, queue: Array(inProgress.dropFirst()), glowColor: $heroGlow)
                 } else {
                     emptyHero
                 }
@@ -37,6 +44,76 @@ struct NowView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .background(alignment: .top) { pageAmbient }
+    }
+
+    // MARK: - 整页氛围场
+
+    /// 全窗连续氛围：封面超大虚化铺底 + 三层径向光团（沿用 Hero 配方），
+    /// 再以纵向渐变向画布色沉降收敛。整体向上溢出 80pt 至透明顶栏后方，
+    /// 窗口顶部整片处在同一光场中，页面自上而下无水平分界。
+    @ViewBuilder
+    private var pageAmbient: some View {
+        if let hero = inProgress.first {
+            GeometryReader { geo in
+                ZStack {
+                    ZStack {
+                        // 封面自身超大虚化铺底
+                        CoverImageView(item: hero, cornerRadius: 0, showsPlaceholderText: false)
+                            .scaledToFill()
+                            .blur(radius: 100)
+                            .opacity(0.40)
+
+                        // 三层戏剧化径向渐变（对齐 Demo .hero .ambient，圆心按全窗高度重排）
+                        if let heroGlow {
+                            let secondary = derivedSecondaryColor(from: heroGlow)
+                            // 1. 左侧大面积主色光团
+                            RadialGradient(
+                                colors: [heroGlow.opacity(0.60), .clear],
+                                center: .init(x: 0.22, y: 0.24),
+                                startRadius: 30, endRadius: 640
+                            )
+                            // 2. 右下方深层冷暖对比次色
+                            RadialGradient(
+                                colors: [secondary.opacity(0.48), .clear],
+                                center: .init(x: 0.70, y: 0.72),
+                                startRadius: 40, endRadius: 560
+                            )
+                            // 3. 右上方琥珀暖调微光
+                            RadialGradient(
+                                colors: [Theme.amberBtn.opacity(0.22), .clear],
+                                center: .init(x: 0.85, y: 0.08),
+                                startRadius: 20, endRadius: 400
+                            )
+                        }
+                    }
+                    .opacity(Theme.ambientOpacity(scheme))
+
+                    // 纵向沉降：底部向画布色收敛，沉降连续无拐点（不参与光效缩放）
+                    LinearGradient(
+                        stops: [
+                            .init(color: Theme.bg.opacity(0), location: 0.10),
+                            .init(color: Theme.bg.opacity(0.45), location: 0.55),
+                            .init(color: Theme.bg.opacity(0.72), location: 0.92)
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                }
+                .frame(width: geo.size.width, height: geo.size.height + 80)
+                .offset(y: -80)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// 根据主色衍生互补/调和的暗调次级色，使暗房光影具有丰富的空间景深感
+    private func derivedSecondaryColor(from color: Color) -> Color {
+        let ns = NSColor(color)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let shiftedHue = fmod(h + 0.38, 1.0)
+        let secNS = NSColor(hue: shiftedHue, saturation: min(1.0, s * 0.9), brightness: max(0.25, b * 0.5), alpha: a)
+        return Color(nsColor: secNS)
     }
 
     // MARK: - 空态
@@ -138,13 +215,6 @@ struct MediaSectionRow: View {
                 }
                 .padding(.horizontal, Theme.contentPadding)
                 .padding(.bottom, 20)
-                // 类型色氛围光：光晕中心落在标题文字上，向下渗入卡片行上部，
-                // 与 Hero 的封面环境光同属一套暗房光语，标题后方不再是纯色断层
-                .background(alignment: .topLeading) {
-                    AmbientGlow(color: type.accentColor)
-                        .frame(width: 620, height: 190)
-                        .offset(x: -40, y: -60)
-                }
 
                 ScrollView(.horizontal) {
                     HStack(spacing: Theme.rowSpacing) {

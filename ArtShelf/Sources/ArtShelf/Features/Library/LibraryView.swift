@@ -12,6 +12,7 @@ struct LibraryView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
+    @Environment(\.colorScheme) private var scheme
 
     @State private var statusFilter: StatusFilter = .all
     @State private var sortMode: SortMode = .dateAdded
@@ -68,12 +69,24 @@ struct LibraryView: View {
             .padding(.horizontal, Theme.contentPadding)
         }
         .scrollIndicators(.hidden)
-        // 页头类型色氛围光：固定于视口顶部（不随滚动），向上溢出到透明顶栏后方，
-        // 窗口顶部整片共享同一环境光，与「此刻」Hero / 分节标题同一套光语
-        .background(alignment: .topLeading) {
-            AmbientGlow(color: type.accentColor, radius: 380)
-                .frame(width: 980, height: 500)
-                .offset(x: -180, y: -190)
+        // 整页类型色氛围：页头光晕 + 全页极淡基调 wash，自上而下连续沉降、无水平分界；
+        // 整体向上溢出 80pt 至透明顶栏后方，窗口顶部整片处在同一光场（与「此刻」同一套光语）
+        .background(alignment: .top) {
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    LinearGradient(
+                        colors: [type.accentColor.opacity(0.08), .clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    AmbientGlow(color: type.accentColor, radius: 380)
+                        .frame(width: 980, height: 500)
+                        .offset(x: -180, y: -110)
+                }
+                .opacity(Theme.ambientOpacity(scheme))
+                .frame(width: geo.size.width, height: geo.size.height + 80)
+                .offset(y: -80)
+            }
+            .allowsHitTesting(false)
         }
     }
 
