@@ -77,10 +77,10 @@ Sources/ArtShelf/
 ## 4. 设计系统实现
 
 - **语义令牌**：`DesignSystem/Theme.swift` 的 `Theme.bg` 等静态令牌全部转发到 `ThemeSettings` 单例的计算属性，依赖 Observation 运行时追踪，切换后全部引用点自动刷新；强调色令牌（`Theme.amber` 等）固化为经典琥珀色系；令牌口径与 `product-design.md` §4.1 一一对应，视图禁止硬编码色值
-- **外观主题**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 键 `appTheme`）提供跟随系统 / 白昼放映厅 / 暗房，每套给齐整套 `ThemePalette`（bg/titlebar/panel/ink×3/rule/well/track）；非「跟随系统」主题各自锁定浅 / 深 `NSApplication.appearance`，窗口 chrome 与 `colorScheme` 环境随之一致
+- **外观主题**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 键 `appTheme`）提供跟随系统 / 白昼放映厅 / 暗房，每套给齐整套 `ThemePalette`（bg/panel/ink×3/rule/well/track）；非「跟随系统」主题各自锁定浅 / 深 `NSApplication.appearance`，窗口 chrome 与 `colorScheme` 环境随之一致
 - **应用图标切换**：`DesignSystem/AppIcon.swift` 提供象牙画廊与晴空微晶两款图标，设置内点选即 `NSApplication.applicationIconImage` 动态替换，UserDefaults（`appIcon`）持久化，启动时随 `applyAppearance()` 应用
 - **封面主色光晕**：`NSImage+AverageColor.swift` 以 `CIAreaAverage` 降采样取主色，按令牌强度渲染
-- **Hero 环境渲染**：封面图放大 + `.blur(radius:)` + 径向渐变叠色，底部渐隐融入画布
+- **Hero 环境渲染**：封面图放大 + `.blur(radius:)` + 径向渐变叠色，顶部渐入、底部渐隐融入画布；「此刻」分节标题与库页页头另以 `DesignSystem/AmbientGlow.swift` 铺类型代表色淡光晕（库页光晕固定于视口顶部并溢出至透明顶栏后方）
 - **字体**：系统字体栈，不设自定义字体
 
 ## 5. 元数据来源（零 API Key）

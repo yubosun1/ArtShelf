@@ -96,10 +96,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/// 一整套语义令牌调色板（窗口画布 / 标题栏 / 卡片 / 三级文字 / 发丝线 / 凹槽 / 轨道）
+/// 一整套语义令牌调色板（窗口画布 / 卡片 / 三级文字 / 发丝线 / 凹槽 / 轨道）
 struct ThemePalette {
     let bg: Color
-    let titlebar: Color
     let panel: Color
     let ink: Color
     let ink2: Color
@@ -114,7 +113,6 @@ extension ThemePalette {
     /// 跟随系统：深浅动态双值（即白昼 / 暗房）
     static let system = ThemePalette(
         bg:       Theme.dynamic(light: Theme.hex(0xF5F4F0), dark: Theme.hex(0x0D0E11)),
-        titlebar: Theme.dynamic(light: Theme.hex(0xECEAE3), dark: Theme.hex(0x101116)),
         panel:    Theme.dynamic(light: Theme.hex(0xFFFFFF), dark: Theme.hex(0x17191F)),
         ink:      Theme.dynamic(light: Theme.hex(0x1B1D23), dark: Theme.hex(0xF2F3F6)),
         ink2:     Theme.dynamic(light: Theme.hex(0x5A5F6B), dark: Theme.hex(0xA6ABB8)),
@@ -127,7 +125,6 @@ extension ThemePalette {
     /// 白昼放映厅（暖纸调浅色）
     static let day = ThemePalette(
         bg:       Color(nsColor: Theme.hex(0xF5F4F0)),
-        titlebar: Color(nsColor: Theme.hex(0xECEAE3)),
         panel:    Color(nsColor: Theme.hex(0xFFFFFF)),
         ink:      Color(nsColor: Theme.hex(0x1B1D23)),
         ink2:     Color(nsColor: Theme.hex(0x5A5F6B)),
@@ -140,7 +137,6 @@ extension ThemePalette {
     /// 暗房（深空灰黑）
     static let darkRoom = ThemePalette(
         bg:       Color(nsColor: Theme.hex(0x0D0E11)),
-        titlebar: Color(nsColor: Theme.hex(0x101116)),
         panel:    Color(nsColor: Theme.hex(0x17191F)),
         ink:      Color(nsColor: Theme.hex(0xF2F3F6)),
         ink2:     Color(nsColor: Theme.hex(0xA6ABB8)),

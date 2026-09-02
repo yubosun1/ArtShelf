@@ -12,8 +12,6 @@ enum Theme {
 
     /// 窗口主画布
     static var bg: Color { ThemeSettings.shared.theme.palette.bg }
-    /// 标题栏
-    static var titlebar: Color { ThemeSettings.shared.theme.palette.titlebar }
     /// 卡片 / 浮层
     static var panel: Color { ThemeSettings.shared.theme.palette.panel }
 

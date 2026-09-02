@@ -40,17 +40,8 @@ struct TopBarView: View {
             .padding(.horizontal, Theme.contentPadding)
             .frame(height: 44)
         }
-        // 标题栏色向下渐变为主画布色，与内容区自然衔接（取代原先纯色 + 发丝线的硬切）
-        .background(
-            LinearGradient(
-                stops: [
-                    .init(color: Theme.titlebar, location: 0),
-                    .init(color: Theme.titlebar, location: 0.45),
-                    .init(color: Theme.bg, location: 1)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-        )
+        // 顶栏透明，直接融入窗口主画布（Theme.bg），不设独立标题栏色：
+        // 导航与内容之间没有分界，库页氛围光可向上溢出到顶栏后方
     }
 
     // MARK: - Tab 导航

@@ -62,11 +62,13 @@ struct NowHeroView: View {
             }
         }
         .opacity(Theme.ambientOpacity(scheme))
-        // 底部向透明淡出：环境色在到达分隔线之前散尽，不硬切、不渗进下方分区
+        // 顶部渐入、底部淡出：环境光从画布中自然浮现，到达分区之前散尽，
+        // 上下都不硬切、不与邻区形成色带分层
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .white, location: 0),
+                    .init(color: .clear, location: 0),
+                    .init(color: .white, location: 0.16),
                     .init(color: .white, location: 0.62),
                     .init(color: .clear, location: 0.94)
                 ],
