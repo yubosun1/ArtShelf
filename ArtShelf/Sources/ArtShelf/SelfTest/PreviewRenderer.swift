@@ -24,26 +24,30 @@ enum PreviewRenderer {
         let dark = NSAppearance(named: .darkAqua)!
         let light = NSAppearance(named: .aqua)!
 
-        // 此刻：深浅双渲染（加高窗口，检验整页氛围场在全窗高的连续覆盖）
-        render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "1-now-dark", height: 1300)
-        render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "2-now-light", height: 1300)
-        // 三个库页 + 统计（深色；库页加高同理——内容不足一屏正是氛围场覆盖的边界情形）
+        // 此刻：深浅双渲染（标准窗口高度 1240 x 820）
+        render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "1-now-dark", height: 820)
+        render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "2-now-light", height: 820)
+        // 三个库页 + 统计（深色）
         for (tab, name) in [(AppTab.movies, "3-movies-dark"), (.music, "4-music-dark"), (.books, "5-books-dark"), (.stats, "6-stats-dark")] {
             appState.tab = tab
-            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: name,
-                   height: tab == .stats ? 1240 : 1300)
+            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: name, height: 820)
         }
-        // 详情整版（深色）：用按集进度的剧集，高度加大以覆盖完整右栏
+        // 详情整版（深色）：用按集进度的剧集
         appState.tab = .now
         if let hero = store.items.first(where: { $0.title == "大明王朝1566" }) {
             appState.openDetail(hero)
-            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "7-detail-dark", height: 1300)
+            render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "7-detail-dark", height: 820)
         }
         appState.closeDetail()
 
         // 设置页（深色）：外观主题色样 / 应用图标切换
         render(SettingsView(), store: store, appState: appState, appearance: dark, to: out, name: "8-settings-dark",
                width: 500, height: 640)
+
+        // 同时更新主预览图 main.png
+        if let darkNow = try? Data(contentsOf: out.appendingPathComponent("1-now-dark.png")) {
+            try? darkNow.write(to: out.appendingPathComponent("main.png"))
+        }
 
         print("预览已渲染到 \(out.path)")
         return 0

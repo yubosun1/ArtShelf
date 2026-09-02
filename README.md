@@ -21,9 +21,47 @@
 
 ## 界面预览
 
+### 「此刻」—— 正在品味的舞台中央
+
+沉浸式大封面 Hero 呈现，主色溢出为环境光晕，支持暗房（深色）与白昼放映厅（浅色）双外观。
+
 <p align="center">
-  <img src="docs/screenshots/main.png" alt="ArtShelf「此刻」主页" width="100%">
+  <img src="docs/screenshots/1-now-dark.png" alt="此刻 - 暗房（深色）" width="100%">
 </p>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><strong>「此刻」白昼放映厅（浅色）</strong></td>
+    <td align="center" width="50%"><strong>藏品详情与策展手记</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/2-now-light.png" alt="此刻 - 白昼放映厅"></td>
+    <td><img src="docs/screenshots/7-detail-dark.png" alt="藏品详情与策展手记"></td>
+  </tr>
+</table>
+
+### 全量网格 · 统计看板 · 偏好设置
+
+<table>
+  <tr>
+    <td align="center" width="33.3%"><strong>片库（影视）</strong></td>
+    <td align="center" width="33.3%"><strong>唱片（音乐）</strong></td>
+    <td align="center" width="33.3%"><strong>书架（书籍）</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/3-movies-dark.png" alt="片库网格"></td>
+    <td><img src="docs/screenshots/4-music-dark.png" alt="唱片网格"></td>
+    <td><img src="docs/screenshots/5-books-dark.png" alt="书架网格"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><strong>统计看板与品味图谱</strong></td>
+    <td align="center"><strong>偏好设置与图标切换</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/6-stats-dark.png" alt="统计看板"></td>
+    <td><img src="docs/screenshots/8-settings-dark.png" alt="偏好设置"></td>
+  </tr>
+</table>
 
 ## 核心特性
 
