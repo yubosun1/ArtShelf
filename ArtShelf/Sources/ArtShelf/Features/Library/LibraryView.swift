@@ -59,6 +59,13 @@ struct LibraryView: View {
                     .padding(.bottom, 28)
                 content
             }
+            // 页头类型色氛围光（随内容滚动，与「此刻」Hero / 分节标题同一套光语）：
+            // 光晕中心落在库名后方，向下渗入首行卡片后散尽，库页背景不再是纯色一块
+            .background(alignment: .topLeading) {
+                AmbientGlow(color: type.accentColor, radius: 380)
+                    .frame(width: 980, height: 500)
+                    .offset(x: -180, y: -170)
+            }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.width
             } action: { width in

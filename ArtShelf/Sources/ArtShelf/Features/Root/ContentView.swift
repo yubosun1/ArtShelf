@@ -15,8 +15,7 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
                 TopBarView(searchFocused: $searchFocused)
-                    .zIndex(1)   // 搜索浮层向下溢出顶栏，需压过发丝线与内容区
-                Rectangle().fill(Theme.rule).frame(height: 1)
+                    .zIndex(1)   // 搜索浮层向下溢出顶栏，需压过内容区（顶栏渐变已收口，无发丝线）
                 tabContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }

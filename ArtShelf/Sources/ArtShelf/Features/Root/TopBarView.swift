@@ -40,7 +40,17 @@ struct TopBarView: View {
             .padding(.horizontal, Theme.contentPadding)
             .frame(height: 44)
         }
-        .background(Theme.titlebar)
+        // 标题栏色向下渐变为主画布色，与内容区自然衔接（取代原先纯色 + 发丝线的硬切）
+        .background(
+            LinearGradient(
+                stops: [
+                    .init(color: Theme.titlebar, location: 0),
+                    .init(color: Theme.titlebar, location: 0.45),
+                    .init(color: Theme.bg, location: 1)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
     }
 
     // MARK: - Tab 导航

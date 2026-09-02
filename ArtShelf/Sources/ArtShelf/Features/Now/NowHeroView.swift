@@ -24,9 +24,6 @@ struct NowHeroView: View {
         .padding(.top, 44)
         .padding(.bottom, 40)
         .background(ambient)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Theme.rule).frame(height: 1)
-        }
     }
 
     // MARK: - 环境色渲染（封面主色虚化铺开）

@@ -24,6 +24,7 @@ struct NowView: View {
 
                 ForEach(MediaType.allCases) { type in
                     MediaSectionRow(
+                        type: type,
                         title: sectionTitle(for: type),
                         subtitle: sectionSubtitle(for: type),
                         items: featured(for: type),
@@ -67,9 +68,6 @@ struct NowView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 64)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Theme.rule).frame(height: 1)
-        }
     }
 
     // MARK: - 精选行数据
@@ -109,6 +107,7 @@ struct NowView: View {
 
 struct MediaSectionRow: View {
 
+    let type: MediaType
     let title: String
     let subtitle: String
     let items: [MediaItem]
@@ -129,7 +128,7 @@ struct MediaSectionRow: View {
                         .foregroundStyle(Theme.ink3)
                     Spacer()
                     Button("全部 ›") {
-                        if let type = items.first?.type, let tab = AppTab.allCases.first(where: { $0.mediaType == type }) {
+                        if let tab = AppTab.allCases.first(where: { $0.mediaType == type }) {
                             appState.tab = tab
                         }
                     }
@@ -139,6 +138,13 @@ struct MediaSectionRow: View {
                 }
                 .padding(.horizontal, Theme.contentPadding)
                 .padding(.bottom, 20)
+                // 类型色氛围光：光晕中心落在标题文字上，向下渗入卡片行上部，
+                // 与 Hero 的封面环境光同属一套暗房光语，标题后方不再是纯色断层
+                .background(alignment: .topLeading) {
+                    AmbientGlow(color: type.accentColor)
+                        .frame(width: 620, height: 190)
+                        .offset(x: -40, y: -60)
+                }
 
                 ScrollView(.horizontal) {
                     HStack(spacing: Theme.rowSpacing) {
