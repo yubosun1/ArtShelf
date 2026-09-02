@@ -277,7 +277,7 @@ struct SettingsView: View {
 
     /// 版本号单一来源：取 Info.plist 的 CFBundleShortVersionString，读不到时兜底
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.2.5"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.2.6"
     }
 
     /// 品牌棱镜标（与顶栏一致）

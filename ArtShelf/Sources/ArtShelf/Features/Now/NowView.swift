@@ -21,37 +21,42 @@ struct NowView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if let hero = inProgress.first {
-                    NowHeroView(item: hero, queue: Array(inProgress.dropFirst()), glowColor: $heroGlow)
-                } else {
-                    emptyHero
-                }
+        ZStack(alignment: .top) {
+            pageAmbient
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let hero = inProgress.first {
+                        NowHeroView(item: hero, queue: Array(inProgress.dropFirst()), glowColor: $heroGlow)
+                    } else {
+                        emptyHero
+                    }
 
-                ForEach(MediaType.allCases) { type in
-                    MediaSectionRow(
-                        type: type,
-                        title: sectionTitle(for: type),
-                        subtitle: sectionSubtitle(for: type),
-                        items: featured(for: type),
-                        totalCount: store.items.filter { $0.type == type }.count
-                    )
-                }
+                    ForEach(MediaType.allCases) { type in
+                        MediaSectionRow(
+                            type: type,
+                            title: sectionTitle(for: type),
+                            subtitle: sectionSubtitle(for: type),
+                            items: featured(for: type),
+                            totalCount: store.items.filter { $0.type == type }.count
+                        )
+                    }
 
-                StatsStrip(items: store.items)
-                    .padding(.top, 20)
+                    StatsStrip(items: store.items)
+                        .padding(.top, 20)
+                }
             }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
-        .background(alignment: .top) { pageAmbient }
     }
 
     // MARK: - 整页氛围场
 
     /// 全窗连续氛围：封面超大虚化铺底 + 三层径向光团（沿用 Hero 配方），
-    /// 再以纵向渐变向画布色沉降收敛。整体向上溢出 80pt 至透明顶栏后方，
-    /// 窗口顶部整片处在同一光场中，页面自上而下无水平分界。
+    /// 再以纵向渐变向画布色沉降收敛，页面自上而下无水平分界。
+    /// 向上溢出 80pt 至透明顶栏后方，窗口顶部整片处在同一光场中。
+    ///
+    /// 注意：必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是
+    /// 滚动内容尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）。
     @ViewBuilder
     private var pageAmbient: some View {
         if let hero = inProgress.first {
@@ -89,12 +94,13 @@ struct NowView: View {
                     }
                     .opacity(Theme.ambientOpacity(scheme))
 
-                    // 纵向沉降：底部向画布色收敛，沉降连续无拐点（不参与光效缩放）
+                    // 纵向沉降：向画布色收敛直至页底（渐变延伸到边缘，无钳制拐点）
                     LinearGradient(
                         stops: [
-                            .init(color: Theme.bg.opacity(0), location: 0.10),
-                            .init(color: Theme.bg.opacity(0.45), location: 0.55),
-                            .init(color: Theme.bg.opacity(0.72), location: 0.92)
+                            .init(color: Theme.bg.opacity(0), location: 0.05),
+                            .init(color: Theme.bg.opacity(0.42), location: 0.50),
+                            .init(color: Theme.bg.opacity(0.68), location: 0.85),
+                            .init(color: Theme.bg.opacity(0.78), location: 1.0)
                         ],
                         startPoint: .top, endPoint: .bottom
                     )

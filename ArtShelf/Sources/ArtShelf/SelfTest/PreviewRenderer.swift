@@ -24,14 +24,14 @@ enum PreviewRenderer {
         let dark = NSAppearance(named: .darkAqua)!
         let light = NSAppearance(named: .aqua)!
 
-        // 此刻：深浅双渲染
-        render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "1-now-dark")
-        render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "2-now-light")
-        // 三个库页 + 统计（深色）
+        // 此刻：深浅双渲染（加高窗口，检验整页氛围场在全窗高的连续覆盖）
+        render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "1-now-dark", height: 1300)
+        render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "2-now-light", height: 1300)
+        // 三个库页 + 统计（深色；库页加高同理——内容不足一屏正是氛围场覆盖的边界情形）
         for (tab, name) in [(AppTab.movies, "3-movies-dark"), (.music, "4-music-dark"), (.books, "5-books-dark"), (.stats, "6-stats-dark")] {
             appState.tab = tab
             render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: name,
-                   height: tab == .stats ? 1240 : 820)
+                   height: tab == .stats ? 1240 : 1300)
         }
         // 详情整版（深色）：用按集进度的剧集，高度加大以覆盖完整右栏
         appState.tab = .now

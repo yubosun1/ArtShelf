@@ -53,41 +53,51 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                headerRow
-                    .padding(.top, Theme.sectionSpacing)
-                    .padding(.bottom, 28)
-                content
-            }
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.width
-            } action: { width in
-                gridWidth = width
-            }
-            // 注意：测量必须在水平内边距之前，否则 gridWidth 会多算 80pt 导致列数高估、网格溢出
-            .padding(.horizontal, Theme.contentPadding)
-        }
-        .scrollIndicators(.hidden)
-        // 整页类型色氛围：页头光晕 + 全页极淡基调 wash，自上而下连续沉降、无水平分界；
-        // 整体向上溢出 80pt 至透明顶栏后方，窗口顶部整片处在同一光场（与「此刻」同一套光语）
-        .background(alignment: .top) {
-            GeometryReader { geo in
-                ZStack(alignment: .topLeading) {
-                    LinearGradient(
-                        colors: [type.accentColor.opacity(0.08), .clear],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    AmbientGlow(color: type.accentColor, radius: 380)
-                        .frame(width: 980, height: 500)
-                        .offset(x: -180, y: -110)
+        ZStack(alignment: .top) {
+            libraryAmbient
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    headerRow
+                        .padding(.top, Theme.sectionSpacing)
+                        .padding(.bottom, 28)
+                    content
                 }
-                .opacity(Theme.ambientOpacity(scheme))
-                .frame(width: geo.size.width, height: geo.size.height + 80)
-                .offset(y: -80)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { width in
+                    gridWidth = width
+                }
+                // 注意：测量必须在水平内边距之前，否则 gridWidth 会多算 80pt 导致列数高估、网格溢出
+                .padding(.horizontal, Theme.contentPadding)
             }
-            .allowsHitTesting(false)
+            .scrollIndicators(.hidden)
         }
+    }
+
+    // MARK: - 整页类型色氛围
+
+    /// 页头光晕 + 全页极淡基调 wash，自上而下连续沉降、无水平分界；
+    /// 向上溢出 80pt 至透明顶栏后方，窗口顶部整片处在同一光场（与「此刻」同一套光语）。
+    ///
+    /// 注意：必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是
+    /// 滚动内容尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）。
+    /// 光晕 frame 各缘距圆心均不小于渐变半径，保证光晕在 frame 内收敛到透明、无切边。
+    private var libraryAmbient: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                LinearGradient(
+                    colors: [type.accentColor.opacity(0.08), .clear],
+                    startPoint: .top, endPoint: .bottom
+                )
+                AmbientGlow(color: type.accentColor, radius: 380)
+                    .frame(width: 980, height: 820)
+                    .offset(x: -180, y: -280)
+            }
+            .opacity(Theme.ambientOpacity(scheme))
+            .frame(width: geo.size.width, height: geo.size.height + 80)
+            .offset(y: -80)
+        }
+        .allowsHitTesting(false)
     }
 
     // MARK: - 标题行：库名 + 计数居左，筛选胶囊与排序菜单靠右同排
