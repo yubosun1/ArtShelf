@@ -121,7 +121,7 @@ struct StatsView: View {
                     if store.items.isEmpty {
                         emptyState
                     } else {
-                        cardGrid.padding(.top, 28)
+                        content
                     }
                 }
                 .padding(.horizontal, Theme.contentPadding)
@@ -175,53 +175,62 @@ struct StatsView: View {
         .padding(.bottom, 28)
     }
 
-    /// 八张统计卡片（自适应 2–3 列网格）
-    private var cardGrid: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 300), spacing: 20)],
-            alignment: .leading,
-            spacing: 20
-        ) {
-            overviewCard
-            footprintCard
-            compositionCard
-            statusCard
-            ratingCard
-            trendCard
-            heatmapCard
-            creatorCard
+    /// 回顾正文：全宽概览 + 分节直排——不用卡片壳，数据以 editorial 版式铺在
+    /// 画布上（节标题沿用「此刻」分节行语言），避免仪表盘格子的报表感
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            overviewRow
+                .padding(.top, 24)
+            compositionSection
+            statusSection
+            ratingSection
+            trendSection
+            heatmapSection
+            creatorSection
         }
-        .padding(.bottom, 40)
+        .padding(.bottom, 44)
     }
 
-    /// 卡片外壳：面板底色 + 发丝描边 + 14 圆角
-    private func statCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title)
-                .font(Theme.sectionTitle)
-                .foregroundStyle(Theme.ink)
+    /// 分节外壳：标题行（大标题 + EN 副标 + 可选注记）+ 内容；
+    /// 节奏与「此刻」分节行同轴（sectionTitle、tracking 0.8、sectionSpacing）
+    private func statSection<Content: View>(
+        title: String,
+        subtitle: String,
+        note: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(Theme.sectionTitle)
+                    .foregroundStyle(Theme.ink)
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.ink3)
+                Spacer()
+                if let note {
+                    Text(note)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.ink3)
+                }
+            }
             content()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(22)
-        .background(Theme.panel)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Theme.rule, lineWidth: 1)
-        )
+        .padding(.top, Theme.sectionSpacing)
     }
 
     // MARK: - 馆藏构成
 
-    private var compositionCard: some View {
-        statCard(title: "馆藏构成") {
+    private var compositionSection: some View {
+        statSection(title: "馆藏构成", subtitle: "COMPOSITION", note: "\(store.items.count) 件馆藏") {
             VStack(spacing: 12) {
                 ForEach(MediaType.allCases) { type in
                     compositionRow(type: type)
                 }
                 stackedBar
             }
+            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -274,13 +283,14 @@ struct StatsView: View {
 
     // MARK: - 状态分布
 
-    private var statusCard: some View {
-        statCard(title: "状态分布") {
+    private var statusSection: some View {
+        statSection(title: "状态分布", subtitle: "STATUS") {
             VStack(spacing: 14) {
                 ForEach(MediaStatus.allCases, id: \.self) { status in
                     statusRow(status: status)
                 }
             }
+            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -314,8 +324,8 @@ struct StatsView: View {
 
     // MARK: - 评分分布
 
-    private var ratingCard: some View {
-        statCard(title: "评分分布") {
+    private var ratingSection: some View {
+        statSection(title: "评分分布", subtitle: "RATING") {
             if ratedCount == 0 {
                 Text("还没有评分记录")
                     .font(Theme.body)
@@ -326,6 +336,7 @@ struct StatsView: View {
                         ratingRow(stars: stars)
                     }
                 }
+                .frame(maxWidth: 640, alignment: .leading)
             }
         }
     }
@@ -347,31 +358,45 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - 概览（本月新增 / 笔记 / 平均评分）
+    // MARK: - 概览（全宽数据行）
 
-    private var overviewCard: some View {
-        statCard(title: "概览") {
-            HStack(spacing: 18) {
-                overviewStat(value: "\(addedThisMonth)", unit: "件", label: "本月新增")
-                divider
-                overviewStat(value: "\(noteCount)", unit: "条", label: "策展笔记")
-                divider
-                overviewStat(
-                    value: averageRating.map { String(format: "%.1f", $0) } ?? "—",
-                    unit: averageRating == nil ? "" : "分",
-                    label: "平均评分"
-                )
-            }
+    /// 六项大数字横排：与「此刻」数据条同构图（竖分隔线），不加壳直接铺在画布上；
+    /// 原「概览」「品味足迹」两卡在此合流
+    private var overviewRow: some View {
+        HStack(spacing: 0) {
+            overviewStat(label: "本月新增", value: "\(addedThisMonth)", unit: "件")
+            divider
+            overviewStat(label: "策展笔记", value: "\(noteCount)", unit: "条")
+            divider
+            overviewStat(
+                label: "平均评分",
+                value: averageRating.map { String(format: "%.1f", $0) } ?? "—",
+                unit: averageRating == nil ? "" : "分"
+            )
+            divider
+            overviewStat(
+                label: "完成率",
+                value: completionRate.map { "\($0)" } ?? "—",
+                unit: completionRate == nil ? "" : "%"
+            )
+            divider
+            overviewStat(label: "重温", value: "\(replayTotal)", unit: "次")
+            divider
+            overviewStat(
+                label: "最常品味",
+                value: mostTastedType?.rawValue ?? "—",
+                accent: mostTastedType.map(typeColor)
+            )
         }
     }
 
-    /// 概览单项：大数字 + 单位 + 说明
-    private func overviewStat(value: String, unit: String, label: String) -> some View {
+    /// 概览单项：大数字 + 单位 + 说明（accent 给「最常品味」类型色着色）
+    private func overviewStat(label: String, value: String, unit: String = "", accent: Color? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
                     .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(accent ?? Theme.ink)
                 if !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 12, weight: .medium))
@@ -390,30 +415,12 @@ struct StatsView: View {
         Rectangle().fill(Theme.rule).frame(width: 1, height: 40)
     }
 
-    // MARK: - 品味足迹（完成率 / 重温 / 最常品味类型）
-
-    private var footprintCard: some View {
-        statCard(title: "品味足迹") {
-            HStack(spacing: 18) {
-                overviewStat(
-                    value: completionRate.map { "\($0)" } ?? "—",
-                    unit: completionRate == nil ? "" : "%",
-                    label: "完成率"
-                )
-                divider
-                overviewStat(value: "\(replayTotal)", unit: "次", label: "重温")
-                divider
-                overviewStat(value: mostTastedType?.rawValue ?? "—", unit: "", label: "最常品味")
-            }
-        }
-    }
-
     // MARK: - 收录热力图（近 12 周）
 
-    private var heatmapCard: some View {
+    private var heatmapSection: some View {
         let counts = heatmapCounts
         let total = counts.values.reduce(0, +)
-        return statCard(title: "收录热力图") {
+        return statSection(title: "收录热力图", subtitle: "HEATMAP", note: "近 12 周") {
             VStack(spacing: 12) {
                 HStack(spacing: 3) {
                     ForEach(0..<12, id: \.self) { week in
@@ -424,7 +431,6 @@ struct StatsView: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity)
                 HStack {
                     Text("近 12 周共收录 \(total) 件")
                         .font(.system(size: 11))
@@ -433,6 +439,7 @@ struct StatsView: View {
                     heatmapLegend
                 }
             }
+            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -477,10 +484,10 @@ struct StatsView: View {
 
     // MARK: - 月度收录趋势（近 6 个月）
 
-    private var trendCard: some View {
+    private var trendSection: some View {
         let months = monthlyTrend
         let maxCount = max(1, months.map(\.total).max() ?? 0)
-        return statCard(title: "月度收录趋势") {
+        return statSection(title: "月度收录趋势", subtitle: "TREND", note: "近 6 个月") {
             HStack(alignment: .bottom, spacing: 0) {
                 ForEach(Array(months.enumerated()), id: \.offset) { _, month in
                     VStack(spacing: 6) {
@@ -498,6 +505,7 @@ struct StatsView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -526,9 +534,9 @@ struct StatsView: View {
 
     // MARK: - 创作者 TOP 榜
 
-    private var creatorCard: some View {
+    private var creatorSection: some View {
         let creators = topCreators
-        return statCard(title: "创作者 TOP 榜") {
+        return statSection(title: "创作者 TOP 榜", subtitle: "TOP CREATORS") {
             if creators.isEmpty {
                 Text("还没有创作者信息")
                     .font(Theme.body)
@@ -539,6 +547,7 @@ struct StatsView: View {
                         creatorRow(rank: index + 1, creator: creator, maxCount: creators[0].count)
                     }
                 }
+                .frame(maxWidth: 640, alignment: .leading)
             }
         }
     }
