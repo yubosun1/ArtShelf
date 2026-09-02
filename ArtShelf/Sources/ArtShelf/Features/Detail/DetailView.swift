@@ -522,16 +522,26 @@ struct DetailView: View {
 
     // MARK: - 关联文件与链接（双击打开）
 
+    /// 媒体唤起成功：视为开始/继续品味 —— 待品味自动转入进行中并刷新最近品味时间，
+    /// 其余状态仅刷新（已完成不回落，重温仍走「再看一遍」）
+    private func noteMediaOpened(_ item: MediaItem) {
+        if item.status == .planned {
+            store.startTasting(item)
+        } else {
+            store.markTasted(item)
+        }
+    }
+
     private func relatedBlock(_ item: MediaItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("关联")
             localFileRow(item)
             watchURLRow(item)
             if let url = item.referenceURL {
-                urlRow(systemImage: "link", url: url, hint: "资料页 · 双击打开")
+                urlRow(item, systemImage: "link", url: url, hint: "资料页 · 双击打开")
             }
             if let url = item.appleMusicURL {
-                urlRow(systemImage: "music.note", url: url, hint: "双击打开")
+                urlRow(item, systemImage: "music.note", url: url, hint: "双击打开", marksTasted: true)
             }
         }
     }
@@ -551,7 +561,9 @@ struct DetailView: View {
                         .foregroundStyle(exists ? Theme.ink : Theme.ink3)
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) {
-                            if exists { FileService.shared.openLocalFile(at: path) }
+                            if exists, FileService.shared.openLocalFile(at: path) {
+                                noteMediaOpened(item)
+                            }
                         }
                     if !exists {
                         Text("（文件不存在）")
@@ -569,7 +581,11 @@ struct DetailView: View {
                     .font(Theme.cardMeta)
                     .foregroundStyle(Theme.ink3)
                     .contentShape(Rectangle())
-                    .onTapGesture(count: 2) { FileService.shared.openLocalFile(at: path) }
+                    .onTapGesture(count: 2) {
+                        if FileService.shared.openLocalFile(at: path) {
+                            noteMediaOpened(item)
+                        }
+                    }
             }
             Button("选取文件…") { pickLocalFile(item) }
                 .buttonStyle(.plain)
@@ -613,7 +629,9 @@ struct DetailView: View {
             Button {
                 // 先落盘输入框里的编辑，再按最新链接打开
                 commitWatchURL(item)
-                FileService.shared.openURL(pending)
+                if FileService.shared.openURL(pending) {
+                    noteMediaOpened(item)
+                }
             } label: {
                 Label("在线观看", systemImage: "play.fill")
                     .font(Theme.control)
@@ -645,7 +663,9 @@ struct DetailView: View {
         watchInput = trimmed
     }
 
-    private func urlRow(systemImage: String, url: String, hint: String) -> some View {
+    /// `marksTasted`：该链接是否为观看入口——唤起成功计入最近品味时间。
+    /// 资料页（referenceURL）不是观看入口，不计入。
+    private func urlRow(_ item: MediaItem, systemImage: String, url: String, hint: String, marksTasted: Bool = false) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 13))
@@ -658,7 +678,11 @@ struct DetailView: View {
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .onTapGesture(count: 2) { FileService.shared.openURL(url) }
+                .onTapGesture(count: 2) {
+                    if marksTasted, FileService.shared.openURL(url) {
+                        noteMediaOpened(item)
+                    }
+                }
             Text(hint)
                 .font(Theme.cardMeta)
                 .foregroundStyle(Theme.ink3)
