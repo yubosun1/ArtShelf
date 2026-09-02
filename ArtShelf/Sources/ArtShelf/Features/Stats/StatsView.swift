@@ -175,18 +175,27 @@ struct StatsView: View {
         .padding(.bottom, 28)
     }
 
-    /// 回顾正文：全宽概览 + 分节直排——不用卡片壳，数据以 editorial 版式铺在
-    /// 画布上（节标题沿用「此刻」分节行语言），避免仪表盘格子的报表感
+    /// 回顾正文：全宽概览 + 三行双栏交织——窄行类并排、宽图类成行，
+    /// 概览全宽压阵，避免单列长龙的线性清单感
     private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             overviewRow
                 .padding(.top, 24)
-            compositionSection
-            statusSection
-            ratingSection
-            trendSection
-            heatmapSection
-            creatorSection
+            HStack(alignment: .top, spacing: 36) {
+                compositionSection
+                statusSection
+            }
+            .padding(.top, Theme.sectionSpacing)
+            HStack(alignment: .top, spacing: 36) {
+                ratingSection
+                creatorSection
+            }
+            .padding(.top, Theme.sectionSpacing)
+            HStack(alignment: .top, spacing: 36) {
+                trendSection
+                heatmapSection
+            }
+            .padding(.top, Theme.sectionSpacing)
         }
         .padding(.bottom, 44)
     }
@@ -217,6 +226,7 @@ struct StatsView: View {
             }
             content()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, Theme.sectionSpacing)
     }
 
@@ -230,7 +240,6 @@ struct StatsView: View {
                 }
                 stackedBar
             }
-            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -290,7 +299,6 @@ struct StatsView: View {
                     statusRow(status: status)
                 }
             }
-            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -336,7 +344,6 @@ struct StatsView: View {
                         ratingRow(stars: stars)
                     }
                 }
-                .frame(maxWidth: 640, alignment: .leading)
             }
         }
     }
@@ -422,15 +429,22 @@ struct StatsView: View {
         let total = counts.values.reduce(0, +)
         return statSection(title: "收录热力图", subtitle: "HEATMAP", note: "近 12 周") {
             VStack(spacing: 12) {
-                HStack(spacing: 3) {
-                    ForEach(0..<12, id: \.self) { week in
-                        VStack(spacing: 3) {
-                            ForEach(0..<7, id: \.self) { weekday in
-                                heatmapCell(offset: week * 7 + weekday, counts: counts)
+                // 格子随栏宽自适应放大（上限 28pt），12 周列组尽量铺满栏宽，
+                // 与对栏的柱图在视觉重量上平衡
+                GeometryReader { geo in
+                    let side = min(28, (geo.size.width - 11 * 3) / 12)
+                    HStack(spacing: 3) {
+                        ForEach(0..<12, id: \.self) { week in
+                            VStack(spacing: 3) {
+                                ForEach(0..<7, id: \.self) { weekday in
+                                    heatmapCell(offset: week * 7 + weekday, counts: counts, side: side)
+                                }
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity)
                 }
+                .frame(height: 7 * 28 + 6 * 3)
                 HStack {
                     Text("近 12 周共收录 \(total) 件")
                         .font(.system(size: 11))
@@ -439,19 +453,18 @@ struct StatsView: View {
                     heatmapLegend
                 }
             }
-            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
-    /// 热力图单格：未来日期留空，其余按当日收录数四档着色
-    private func heatmapCell(offset: Int, counts: [Int: Int]) -> some View {
+    /// 热力图单格：未来日期留空，其余按当日收录数四档着色（side 随栏宽自适应）
+    private func heatmapCell(offset: Int, counts: [Int: Int], side: CGFloat) -> some View {
         let cal = Calendar.current
         let date = cal.date(byAdding: .day, value: offset, to: heatmapStart)!
         let isFuture = date > cal.startOfDay(for: Date())
         let count = isFuture ? 0 : (counts[offset] ?? 0)
         return RoundedRectangle(cornerRadius: 2.5, style: .continuous)
             .fill(isFuture ? Color.clear : heatColor(count))
-            .frame(width: 12, height: 12)
+            .frame(width: side, height: side)
             .help("\(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits))) 收录 \(count) 件")
     }
 
@@ -505,7 +518,6 @@ struct StatsView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -547,7 +559,6 @@ struct StatsView: View {
                         creatorRow(rank: index + 1, creator: creator, maxCount: creators[0].count)
                     }
                 }
-                .frame(maxWidth: 640, alignment: .leading)
             }
         }
     }
