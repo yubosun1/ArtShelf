@@ -40,15 +40,16 @@ struct MediaCardView: View {
                         endPoint: .bottom
                     )
                 }
-                .coverGlow(glowColor, scheme: scheme)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
                 .overlay(alignment: .topTrailing) {
                     StatusBadge(status: item.status, type: item.type, text: badgeText)
                         .padding(9)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
+                .coverGlow(glowColor, scheme: scheme)
                 .contentShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
-                .onHover { hovered = $0 }
                 .cardHoverLift(hovered)
+                .zIndex(hovered ? 2 : 0)
+                .onHover { hovered = $0 }
 
             Text(item.title)
                 .font(Theme.cardTitle)
