@@ -27,7 +27,7 @@
 Sources/ArtShelf/
 ├── main.swift               # 入口（--self-test / --render-preview 分支，仅 Debug）
 ├── ArtShelfApp.swift        # 窗口配置、菜单命令与快捷键
-├── DesignSystem/            # 设计令牌（深浅双色）、封面加载与取色、光效组件
+├── DesignSystem/            # 设计令牌（完整主题调色板）、封面加载与取色、光效组件、应用图标切换
 ├── Models/                  # Codable 值类型（MediaItem / NoteEntry / 枚举）
 ├── Services/                # 元数据抓取、EPUB 解析、文件与链接打开
 ├── Store/                   # LibraryStore 仓库、迁移器、导入导出、路径约定
@@ -75,9 +75,10 @@ Sources/ArtShelf/
 
 ## 4. 设计系统实现
 
-- **语义令牌**：`DesignSystem/Theme.swift` 以 `dynamic(light:dark:)` 定义颜色，令牌口径与 `product-design.md` §4.1 一一对应；视图禁止硬编码色值
-- **外观三态**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 持久化）提供跟随系统 / 白昼放映厅 / 暗房三态，切换时设 `NSApplication.appearance` 全局生效
-- **主题色四套**：琥珀 / 靛蓝 / 青玉 / 胭脂；`Theme.amber` 等令牌转发到 `ThemeSettings.shared.accent` 的计算属性，依赖 Observation 运行时追踪，切换后全部引用点自动刷新
+- **语义令牌**：`DesignSystem/Theme.swift` 的 `Theme.bg` 等静态令牌全部转发到 `ThemeSettings` 单例的计算属性，依赖 Observation 运行时追踪，切换后全部引用点自动刷新；令牌口径与 `product-design.md` §4.1 一一对应，视图禁止硬编码色值
+- **完整主题五套**：`DesignSystem/ThemeSettings.swift`（@Observable 单例，UserDefaults 键 `appTheme`）提供跟随系统 / 白昼放映厅 / 暗房 / 午夜蓝场 / 羊皮纸，每套给齐整套 `ThemePalette`（bg/titlebar/panel/ink×3/rule/well/track）；非「跟随系统」主题各自锁定浅 / 深 `NSApplication.appearance`，窗口 chrome 与 `colorScheme` 环境随之一致；旧 `appearanceMode` 键启动时一次性迁移
+- **主题色四套**：琥珀 / 靛蓝 / 青玉 / 胭脂，与完整主题正交；`Theme.amber` 等令牌转发到 `ThemeSettings.shared.accent` 的计算属性
+- **应用图标切换**：`DesignSystem/AppIcon.swift` 六款图标（v1 棱镜画架四色 + 暗房陈列 + 棱镜方块），设置内点选即 `NSApplication.applicationIconImage` 动态替换，UserDefaults（`appIcon`）持久化，启动时随 `applyAppearance()` 应用；生成脚本 `Scripts/generate_icons_v2.swift`（v1 四款为 `generate_icons.swift`）
 - **封面主色光晕**：`NSImage+AverageColor.swift` 以 `CIAreaAverage` 降采样取主色，按令牌强度渲染
 - **Hero 环境渲染**：封面图放大 + `.blur(radius:)` + 径向渐变叠色，底部渐隐融入画布
 - **字体**：系统字体栈，不设自定义字体

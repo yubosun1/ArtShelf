@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.0.1-blue" alt="Version 3.0.1">
+  <img src="https://img.shields.io/badge/version-3.1.0-blue" alt="Version 3.1.0">
   <img src="https://img.shields.io/badge/macOS-14.0%2B-333333?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-6%20%7C%20SwiftUI-FA7343?logo=swift" alt="Swift 6">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
@@ -31,7 +31,8 @@
 
 - **此刻主页**：最近正在品味的作品以大封面 Hero 呈现——标题、手记摘要、进度、「继续观赏」一键直达；其余进行中的藏品排成队列卡紧随其后
 - **封面即主角**：封面满幅铺陈，主色溢出为环境光晕，整个界面从藏品中生长出来
-- **深浅双色随系统**：深色是暗房本色，浅色是「白昼放映厅」，两种外观一等公民
+- **五套完整主题**：白昼放映厅（暖纸调）、暗房（本色深空）、午夜蓝场（藏青）、羊皮纸（暖复古），或跟随系统在白昼 / 暗房间自动切换；每套都是整套调色板，另有四套主题色（琥珀 / 靛蓝 / 青玉 / 胭脂）自由搭配
+- **图标随心换**：设置内六款图标即点即换（棱镜画架四色、暗房陈列、棱镜方块），默认象牙画廊随时切回
 
 ### 片库 · 唱片 · 书架
 
@@ -93,7 +94,7 @@ ArtShelf/
     ├── Resources/            # Info.plist 与图标资源
     ├── Scripts/              # 图标生成 / 打包脚本
     └── Sources/ArtShelf/
-        ├── DesignSystem/     # 设计令牌（深浅双色）、封面加载与取色、通用组件
+        ├── DesignSystem/     # 设计令牌（完整主题）、封面加载与取色、应用图标切换、通用组件
         ├── Models/           # Codable 值类型（MediaItem / NoteEntry / 枚举）
         ├── Services/         # 元数据抓取、EPUB 解析、文件与链接打开
         ├── Store/            # LibraryStore 仓库、迁移器、导入导出

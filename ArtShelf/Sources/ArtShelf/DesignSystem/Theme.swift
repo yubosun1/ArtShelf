@@ -1,36 +1,36 @@
 import SwiftUI
 import AppKit
 
-/// v3 设计令牌 ——「沉浸暗房」深浅双色设计系统
+/// v3 设计令牌 ——「沉浸暗房」完整主题设计系统
 ///
 /// 令牌口径与 `docs/product-design.md` §5.1 一一对应。
-/// 深色为「暗房」，浅色为「白昼放映厅」（暖纸调）。
-/// 深浅默认跟随系统，可在设置中手动锁定；强调色（amber 系列）转发到
-/// `ThemeSettings.shared.accent` 的主题色套件，随设置切换实时刷新。
+/// 完整主题（跟随系统 / 白昼放映厅 / 暗房 / 午夜蓝场 / 羊皮纸）转发到
+/// `ThemeSettings.shared.theme` 的整套调色板；强调色（amber 系列）转发到
+/// `ThemeSettings.shared.accent` 的主题色套件，均随设置切换实时刷新。
 enum Theme {
 
-    // MARK: - 调色板（语义令牌）
+    // MARK: - 调色板（语义令牌，转发当前完整主题）
 
     /// 窗口主画布
-    static let bg = dynamic(light: hex(0xF5F4F0), dark: hex(0x0D0E11))
+    static var bg: Color { ThemeSettings.shared.theme.palette.bg }
     /// 标题栏
-    static let titlebar = dynamic(light: hex(0xECEAE3), dark: hex(0x101116))
+    static var titlebar: Color { ThemeSettings.shared.theme.palette.titlebar }
     /// 卡片 / 浮层
-    static let panel = dynamic(light: hex(0xFFFFFF), dark: hex(0x17191F))
+    static var panel: Color { ThemeSettings.shared.theme.palette.panel }
 
     /// 一级文字
-    static let ink = dynamic(light: hex(0x1B1D23), dark: hex(0xF2F3F6))
+    static var ink: Color { ThemeSettings.shared.theme.palette.ink }
     /// 次级文字
-    static let ink2 = dynamic(light: hex(0x5A5F6B), dark: hex(0xA6ABB8))
+    static var ink2: Color { ThemeSettings.shared.theme.palette.ink2 }
     /// 三级文字
-    static let ink3 = dynamic(light: hex(0x9AA0AC), dark: hex(0x6B7180))
+    static var ink3: Color { ThemeSettings.shared.theme.palette.ink3 }
 
     /// 发丝分隔线
-    static let rule = dynamic(light: Color.black.opacity(0.09), dark: Color.white.opacity(0.07))
+    static var rule: Color { ThemeSettings.shared.theme.palette.rule }
     /// 内凹槽（搜索框 / 按钮底）
-    static let well = dynamic(light: Color.black.opacity(0.055), dark: Color.white.opacity(0.07))
+    static var well: Color { ThemeSettings.shared.theme.palette.well }
     /// 进度条轨道
-    static let track = dynamic(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.12))
+    static var track: Color { ThemeSettings.shared.theme.palette.track }
 
     /// 主题强调色（文字 / 进度 / 点睛；随设置的主题色套件切换，默认琥珀）
     static var amber: Color { ThemeSettings.shared.accent.accent }

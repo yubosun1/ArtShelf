@@ -17,13 +17,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 26) {
                 appearanceSection
                 accentSection
+                iconSection
                 dataSection
                 storageSection
                 aboutSection
             }
             .padding(24)
         }
-        .frame(width: 500, height: 620)
+        .frame(width: 500, height: 700)
         .scrollIndicators(.hidden)
         .background(Theme.bg)
     }
@@ -72,30 +73,30 @@ struct SettingsView: View {
     // MARK: - 外观
 
     private var appearanceSection: some View {
-        section(title: "外观") {
-            HStack(spacing: 24) {
-                ForEach(AppearanceMode.allCases) { mode in
-                    appearanceSwatch(mode)
+        section(title: "外观 · 完整主题") {
+            HStack(spacing: 18) {
+                ForEach(AppTheme.allCases) { theme in
+                    themeSwatch(theme)
                 }
             }
         }
     }
 
-    /// 外观三选色样：跟随系统（半浅半深）/ 白昼放映厅（浅底）/ 暗房（深底）
-    private func appearanceSwatch(_ mode: AppearanceMode) -> some View {
-        let selected = ThemeSettings.shared.appearanceMode == mode
+    /// 主题色样：迷你窗口预览（画布底 + 面板卡 + 文字条 + 强调色点），选中描边加粗
+    private func themeSwatch(_ theme: AppTheme) -> some View {
+        let selected = ThemeSettings.shared.theme == theme
         return Button {
-            ThemeSettings.shared.appearanceMode = mode
+            ThemeSettings.shared.theme = theme
         } label: {
             VStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(swatchFill(for: mode))
+                swatchCanvas(theme)
                     .frame(width: 56, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .strokeBorder(selected ? Theme.amber : Theme.rule, lineWidth: selected ? 2 : 1)
                     )
-                Text(mode.title)
+                Text(theme.title)
                     .font(.system(size: 11))
                     .foregroundStyle(selected ? Theme.ink : Theme.ink3)
             }
@@ -103,23 +104,41 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    /// 色样填充：固定色值（仅作预览，不随外观切换）
-    private func swatchFill(for mode: AppearanceMode) -> AnyShapeStyle {
-        let light = Color(red: 0xF5 / 255.0, green: 0xF4 / 255.0, blue: 0xF0 / 255.0)
-        let dark = Color(red: 0x0D / 255.0, green: 0x0E / 255.0, blue: 0x11 / 255.0)
-        switch mode {
-        case .light: return AnyShapeStyle(light)
-        case .dark:  return AnyShapeStyle(dark)
-        case .system:
-            return AnyShapeStyle(LinearGradient(
-                stops: [
-                    .init(color: light, location: 0),
-                    .init(color: light, location: 0.5),
-                    .init(color: dark, location: 0.5),
-                    .init(color: dark, location: 1)
-                ],
-                startPoint: .leading, endPoint: .trailing
-            ))
+    /// 迷你窗口画布（固定色值，不随当前主题变化；跟随系统为半浅半深拼色）
+    @ViewBuilder
+    private func swatchCanvas(_ theme: AppTheme) -> some View {
+        if theme == .system {
+            HStack(spacing: 0) {
+                swatchContent(bg: Color(nsColor: Theme.hex(0xF5F4F0)), panel: Color(nsColor: Theme.hex(0xFFFFFF)), ink: Color(nsColor: Theme.hex(0x1B1D23)))
+                swatchContent(bg: Color(nsColor: Theme.hex(0x0D0E11)), panel: Color(nsColor: Theme.hex(0x17191F)), ink: Color(nsColor: Theme.hex(0xF2F3F6)))
+            }
+        } else {
+            swatchContent(bg: theme.palette.bg, panel: theme.palette.panel, ink: theme.palette.ink)
+        }
+    }
+
+    /// 单侧迷你窗口：画布底 + 面板条 + 文字条 + 强调色点
+    private func swatchContent(bg: Color, panel: Color, ink: Color) -> some View {
+        ZStack(alignment: .topLeading) {
+            bg
+            VStack(alignment: .leading, spacing: 3) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(panel)
+                    .frame(width: 30, height: 12)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(ink)
+                    .frame(width: 18, height: 2.5)
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(ink.opacity(0.5))
+                    .frame(width: 24, height: 2.5)
+            }
+            .padding(5)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Circle()
+                .fill(Theme.amber)
+                .frame(width: 5, height: 5)
+                .padding(4)
         }
     }
 
@@ -151,6 +170,53 @@ struct SettingsView: View {
                             .strokeBorder(selected ? Theme.ink2 : Theme.rule, lineWidth: selected ? 2 : 1)
                     )
                 Text(accent.title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(selected ? Theme.ink : Theme.ink3)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - 应用图标
+
+    private var iconSection: some View {
+        section(title: "应用图标") {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 76), spacing: 12)],
+                spacing: 16
+            ) {
+                ForEach(AppIconOption.allCases) { icon in
+                    iconSwatch(icon)
+                }
+            }
+        }
+    }
+
+    /// 图标色样：缩略图（底版对齐描边）+ 名称，点击即切换 Dock / 应用图标
+    private func iconSwatch(_ icon: AppIconOption) -> some View {
+        let selected = ThemeSettings.shared.appIcon == icon
+        return Button {
+            ThemeSettings.shared.appIcon = icon
+        } label: {
+            VStack(spacing: 6) {
+                Group {
+                    if let image = icon.image {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } else {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Theme.well)
+                    }
+                }
+                .frame(width: 64, height: 64)
+                // 描边对齐图标底版边缘（底版占画布 824/1024，四周留白约 6.3pt）
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(selected ? Theme.amber : Theme.rule, lineWidth: selected ? 2 : 1)
+                        .padding(6.3)
+                )
+                Text(icon.title)
                     .font(.system(size: 11))
                     .foregroundStyle(selected ? Theme.ink : Theme.ink3)
             }
@@ -250,7 +316,7 @@ struct SettingsView: View {
 
     /// 版本号单一来源：取 Info.plist 的 CFBundleShortVersionString，读不到时兜底
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.1.0"
     }
 
     /// 品牌棱镜标（与顶栏一致）
