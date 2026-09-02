@@ -223,6 +223,11 @@ struct MediaSectionRow: View {
                 }
                 .padding(.horizontal, Theme.contentPadding)
                 .padding(.bottom, 20)
+                // 标题行必须压过下方横向 ScrollView：滚动框用负上边距向上吸收
+                // 阴影余量（.padding(.top, -64)，视觉上滚动内容盖住标题行下方），
+                // 其透明 frame 也因此覆盖标题行并拦截点击——无 zIndex 时
+                // 「全部 ›」等按钮将点击无响应（实测复现）
+                .zIndex(1)
 
                 ScrollView(.horizontal) {
                     HStack(spacing: Theme.rowSpacing) {
