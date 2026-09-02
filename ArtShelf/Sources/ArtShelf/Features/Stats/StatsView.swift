@@ -370,25 +370,20 @@ struct StatsView: View {
     /// 六项大数字横排：与「此刻」数据条同构图（竖分隔线），不加壳直接铺在画布上；
     /// 原「概览」「品味足迹」两卡在此合流
     private var overviewRow: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 18) {
             overviewStat(label: "本月新增", value: "\(addedThisMonth)", unit: "件")
-            divider
             overviewStat(label: "策展笔记", value: "\(noteCount)", unit: "条")
-            divider
             overviewStat(
                 label: "平均评分",
                 value: averageRating.map { String(format: "%.1f", $0) } ?? "—",
                 unit: averageRating == nil ? "" : "分"
             )
-            divider
             overviewStat(
                 label: "完成率",
                 value: completionRate.map { "\($0)" } ?? "—",
                 unit: completionRate == nil ? "" : "%"
             )
-            divider
             overviewStat(label: "重温", value: "\(replayTotal)", unit: "次")
-            divider
             overviewStat(
                 label: "最常品味",
                 value: mostTastedType?.rawValue ?? "—",
@@ -416,10 +411,6 @@ struct StatsView: View {
                 .foregroundStyle(Theme.ink3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var divider: some View {
-        Rectangle().fill(Theme.rule).frame(width: 1, height: 40)
     }
 
     // MARK: - 收录热力图（近 12 周）
