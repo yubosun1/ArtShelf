@@ -24,13 +24,6 @@ final class ThemeSettings {
         }
     }
 
-    /// 主题色套件（默认琥珀；与完整主题正交）
-    var accent: AccentTheme {
-        didSet {
-            UserDefaults.standard.set(accent.rawValue, forKey: "accentTheme")
-        }
-    }
-
     /// 应用图标（默认象牙画廊，即系统 icns 同款）
     var appIcon: AppIconOption {
         didSet {
@@ -55,7 +48,6 @@ final class ThemeSettings {
         } else {
             theme = AppTheme(rawValue: defaults.string(forKey: "appTheme") ?? "") ?? .system
         }
-        accent = AccentTheme(rawValue: defaults.string(forKey: "accentTheme") ?? "") ?? .amber
         appIcon = AppIconOption(rawValue: defaults.string(forKey: "appIcon") ?? "") ?? .ivory
     }
 
@@ -69,41 +61,37 @@ final class ThemeSettings {
 
 // MARK: - 完整主题
 
-/// 五套完整主题：跟随系统 / 白昼放映厅 / 暗房 / 午夜蓝场 / 羊皮纸
+/// 三套外观主题：跟随系统 / 白昼放映厅 / 暗房
 /// 每套给齐整套语义令牌调色板；除「跟随系统」外各自锁定浅 / 深系统外观，
 /// 使窗口 chrome、`colorScheme` 环境与调色板始终一致。
 enum AppTheme: String, CaseIterable, Identifiable {
-    case system, day, darkRoom, midnight, parchment
+    case system, day, darkRoom
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .system:    return "跟随系统"
-        case .day:       return "白昼放映厅"
-        case .darkRoom:  return "暗房"
-        case .midnight:  return "午夜蓝场"
-        case .parchment: return "羊皮纸"
+        case .system:   return "跟随系统"
+        case .day:      return "白昼放映厅"
+        case .darkRoom: return "暗房"
         }
     }
 
     /// 锁定的系统外观（nil = 跟随系统）
     var nsAppearance: NSAppearance? {
         switch self {
-        case .system:              return nil
-        case .day, .parchment:     return NSAppearance(named: .aqua)
-        case .darkRoom, .midnight: return NSAppearance(named: .darkAqua)
+        case .system:   return nil
+        case .day:      return NSAppearance(named: .aqua)
+        case .darkRoom: return NSAppearance(named: .darkAqua)
         }
     }
 
     /// 整套语义令牌调色板
     var palette: ThemePalette {
         switch self {
-        case .system:    return .system
-        case .day:       return .day
-        case .darkRoom:  return .darkRoom
-        case .midnight:  return .midnight
-        case .parchment: return .parchment
+        case .system:   return .system
+        case .day:      return .day
+        case .darkRoom: return .darkRoom
         }
     }
 }
@@ -123,7 +111,7 @@ struct ThemePalette {
 
 extension ThemePalette {
 
-    /// 跟随系统：深浅动态双值（即 v3.0 的白昼 / 暗房）
+    /// 跟随系统：深浅动态双值（即白昼 / 暗房）
     static let system = ThemePalette(
         bg:       Theme.dynamic(light: Theme.hex(0xF5F4F0), dark: Theme.hex(0x0D0E11)),
         titlebar: Theme.dynamic(light: Theme.hex(0xECEAE3), dark: Theme.hex(0x101116)),
@@ -161,101 +149,4 @@ extension ThemePalette {
         well:     Color.white.opacity(0.07),
         track:    Color.white.opacity(0.12)
     )
-
-    /// 午夜蓝场（藏青底深色系）
-    static let midnight = ThemePalette(
-        bg:       Color(nsColor: Theme.hex(0x0B1220)),
-        titlebar: Color(nsColor: Theme.hex(0x0E1526)),
-        panel:    Color(nsColor: Theme.hex(0x141C30)),
-        ink:      Color(nsColor: Theme.hex(0xE8EDF7)),
-        ink2:     Color(nsColor: Theme.hex(0x93A0BC)),
-        ink3:     Color(nsColor: Theme.hex(0x5E6B87)),
-        rule:     Color.white.opacity(0.07),
-        well:     Color.white.opacity(0.07),
-        track:    Color.white.opacity(0.12)
-    )
-
-    /// 羊皮纸（暖复古浅色）
-    static let parchment = ThemePalette(
-        bg:       Color(nsColor: Theme.hex(0xF0E8D8)),
-        titlebar: Color(nsColor: Theme.hex(0xE7DECC)),
-        panel:    Color(nsColor: Theme.hex(0xFAF5E9)),
-        ink:      Color(nsColor: Theme.hex(0x2E2620)),
-        ink2:     Color(nsColor: Theme.hex(0x6B5D4F)),
-        ink3:     Color(nsColor: Theme.hex(0x9C8D7B)),
-        rule:     Color.black.opacity(0.10),
-        well:     Color.black.opacity(0.06),
-        track:    Color.black.opacity(0.12)
-    )
-}
-
-// MARK: - 主题色套件
-
-/// 四套主题色：琥珀（默认）/ 靛蓝 / 青玉 / 胭脂
-/// 每套给齐：强调文字色（深浅）、主按钮底色与其上文字色（深浅）、渐亮端；
-/// 「进行中」徽标由此派生（bg = 强调色 14%/26% 透明，字 = 浅用强调色 / 深用渐亮端）。
-enum AccentTheme: String, CaseIterable, Identifiable {
-    case amber, indigo, teal, rouge
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .amber:  return "琥珀"
-        case .indigo: return "靛蓝"
-        case .teal:   return "青玉"
-        case .rouge:  return "胭脂"
-        }
-    }
-
-    // 色值：（浅色强调, 深色强调, 按钮底, 按钮上文字·浅, 按钮上文字·深, 渐亮端）
-    private var values: (NSColor, NSColor, NSColor, NSColor, NSColor, NSColor) {
-        switch self {
-        case .amber:
-            return (Theme.hex(0xC07A14), Theme.hex(0xE8A33D), Theme.hex(0xE8A33D),
-                    Theme.hex(0x2A1B06), Theme.hex(0x1A1208), Theme.hex(0xF5C063))
-        case .indigo:
-            return (Theme.hex(0x3B5FD9), Theme.hex(0x7A9AFF), Theme.hex(0x5B82F6),
-                    Theme.hex(0xF5F8FF), Theme.hex(0xF5F8FF), Theme.hex(0xA9C0FF))
-        case .teal:
-            return (Theme.hex(0x17726C), Theme.hex(0x4EC9C0), Theme.hex(0x2AA7A0),
-                    Theme.hex(0x042926), Theme.hex(0x042926), Theme.hex(0x8FE3DC))
-        case .rouge:
-            return (Theme.hex(0xB02F6C), Theme.hex(0xF06EA8), Theme.hex(0xE85B9B),
-                    Theme.hex(0x3A0A22), Theme.hex(0x3A0A22), Theme.hex(0xF8A8CC))
-        }
-    }
-
-    /// 强调色（文字 / 进度 / 点睛，随深浅外观）
-    var accent: Color {
-        let v = values
-        return Theme.dynamic(light: v.0, dark: v.1)
-    }
-
-    /// 主按钮底色（深浅一致）
-    var button: Color { Color(nsColor: values.2) }
-
-    /// 主按钮上的文字色
-    var buttonOn: Color {
-        let v = values
-        return Theme.dynamic(light: v.3, dark: v.4)
-    }
-
-    /// 渐亮端（进度条渐变 / 深色下「进行中」文字）
-    var highlight: Color { Color(nsColor: values.5) }
-
-    /// 「进行中」徽标底色
-    var doingBg: Color {
-        let v = values
-        return Theme.dynamic(
-            light: v.0.withAlphaComponent(0.14),
-            dark: v.1.withAlphaComponent(0.26)
-        )
-    }
-
-    /// 「进行中」徽标文字色
-    var doingTx: Color {
-        let v = values
-        return Theme.dynamic(light: v.0, dark: v.5)
-    }
 }

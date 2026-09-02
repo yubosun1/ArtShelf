@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.1.1-blue" alt="Version 3.1.1">
+  <img src="https://img.shields.io/badge/version-3.2.0-blue" alt="Version 3.2.0">
   <img src="https://img.shields.io/badge/macOS-14.0%2B-333333?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-6%20%7C%20SwiftUI-FA7343?logo=swift" alt="Swift 6">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
@@ -31,8 +31,8 @@
 
 - **此刻主页**：最近正在品味的作品以大封面 Hero 呈现——标题、手记摘要、进度、「继续观赏」一键直达；其余进行中的藏品排成队列卡紧随其后
 - **封面即主角**：封面满幅铺陈，主色溢出为环境光晕，整个界面从藏品中生长出来
-- **五套完整主题**：白昼放映厅（暖纸调）、暗房（本色深空）、午夜蓝场（藏青）、羊皮纸（暖复古），或跟随系统在白昼 / 暗房间自动切换；每套都是整套调色板，另有四套主题色（琥珀 / 靛蓝 / 青玉 / 胭脂）自由搭配
-- **图标随心换**：设置内六款图标即点即换（棱镜画架四色、暗房陈列、棱镜方块），默认象牙画廊随时切回
+- **外观主题**：暗房（本色深空）、白昼放映厅（暖纸调）或跟随系统在白昼 / 暗房间自动切换，搭配统一沉稳的琥珀色强调
+- **图标随心换**：设置内提供象牙画廊与晴空微晶两款精美应用图标，即点即换且随时切回
 
 ### 片库 · 唱片 · 书架
 

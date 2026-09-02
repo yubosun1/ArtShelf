@@ -9,25 +9,18 @@ import AppKit
 enum AppIconOption: String, CaseIterable, Identifiable {
     case ivory = "prism_ivory"
     case sky = "prism_sky"
-    case rose = "prism_rose"
-    case dark = "prism_dark"
-    case shelfDark = "shelf_dark"
-    case prismBlock = "prism_block"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .ivory:      return "象牙画廊"
-        case .sky:        return "晴空微晶"
-        case .rose:       return "珍珠粉晕"
-        case .dark:       return "深空暮夜"
-        case .shelfDark:  return "暗房陈列"
-        case .prismBlock: return "棱镜方块"
+        case .ivory: return "象牙画廊"
+        case .sky:   return "晴空微晶"
         }
     }
 
     /// 图标图片：① App Bundle 的 Resources/Icons；② 开发期相对路径（`swift run`）；③ 回退当前应用图标
+    @MainActor
     var image: NSImage? {
         let filename = "\(rawValue).png"
 
@@ -57,6 +50,7 @@ enum AppIconOption: String, CaseIterable, Identifiable {
     }
 
     /// 应用到 Dock / 应用图标
+    @MainActor
     func apply() {
         guard let image else { return }
         NSApplication.shared.applicationIconImage = image

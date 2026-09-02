@@ -16,7 +16,6 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 appearanceSection
-                accentSection
                 iconSection
                 dataSection
                 storageSection
@@ -24,7 +23,7 @@ struct SettingsView: View {
             }
             .padding(24)
         }
-        .frame(width: 500, height: 700)
+        .frame(width: 500, height: 640)
         .scrollIndicators(.hidden)
         .background(Theme.bg)
     }
@@ -73,7 +72,7 @@ struct SettingsView: View {
     // MARK: - 外观
 
     private var appearanceSection: some View {
-        section(title: "外观 · 完整主题") {
+        section(title: "外观 · 主题") {
             HStack(spacing: 18) {
                 ForEach(AppTheme.allCases) { theme in
                     themeSwatch(theme)
@@ -142,49 +141,11 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 主题色
-
-    private var accentSection: some View {
-        section(title: "主题色") {
-            HStack(spacing: 20) {
-                ForEach(AccentTheme.allCases) { accent in
-                    accentSwatch(accent)
-                }
-            }
-        }
-    }
-
-    /// 主题色样：圆形色点，选中态外圈加粗描边
-    private func accentSwatch(_ accent: AccentTheme) -> some View {
-        let selected = ThemeSettings.shared.accent == accent
-        return Button {
-            ThemeSettings.shared.accent = accent
-        } label: {
-            VStack(spacing: 6) {
-                Circle()
-                    .fill(accent.button)
-                    .frame(width: 26, height: 26)
-                    .padding(3)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(selected ? Theme.ink2 : Theme.rule, lineWidth: selected ? 2 : 1)
-                    )
-                Text(accent.title)
-                    .font(.system(size: 11))
-                    .foregroundStyle(selected ? Theme.ink : Theme.ink3)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - 应用图标
 
     private var iconSection: some View {
         section(title: "应用图标") {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 76), spacing: 12)],
-                spacing: 16
-            ) {
+            HStack(spacing: 18) {
                 ForEach(AppIconOption.allCases) { icon in
                     iconSwatch(icon)
                 }
@@ -316,7 +277,7 @@ struct SettingsView: View {
 
     /// 版本号单一来源：取 Info.plist 的 CFBundleShortVersionString，读不到时兜底
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.1.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.2.0"
     }
 
     /// 品牌棱镜标（与顶栏一致）

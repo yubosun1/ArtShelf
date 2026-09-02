@@ -41,17 +41,9 @@ enum PreviewRenderer {
         }
         appState.closeDetail()
 
-        // 新完整主题预览：午夜蓝场 / 羊皮纸（此刻 + 统计）
-        for (theme, suffix) in [(AppTheme.midnight, "midnight"), (AppTheme.parchment, "parchment")] {
-            appState.tab = .now
-            render(ContentView(), store: store, appState: appState, appearance: dark, theme: theme, to: out, name: "8-now-\(suffix)")
-            appState.tab = .stats
-            render(ContentView(), store: store, appState: appState, appearance: dark, theme: theme, to: out, name: "9-stats-\(suffix)", height: 1240)
-        }
-
-        // 设置页（深色）：外观主题色样 / 主题色 / 应用图标切换
-        render(SettingsView(), store: store, appState: appState, appearance: dark, to: out, name: "10-settings-dark",
-               width: 500, height: 700)
+        // 设置页（深色）：外观主题色样 / 应用图标切换
+        render(SettingsView(), store: store, appState: appState, appearance: dark, to: out, name: "8-settings-dark",
+               width: 500, height: 640)
 
         print("预览已渲染到 \(out.path)")
         return 0

@@ -4,9 +4,8 @@ import AppKit
 /// v3 设计令牌 ——「沉浸暗房」完整主题设计系统
 ///
 /// 令牌口径与 `docs/product-design.md` §5.1 一一对应。
-/// 完整主题（跟随系统 / 白昼放映厅 / 暗房 / 午夜蓝场 / 羊皮纸）转发到
-/// `ThemeSettings.shared.theme` 的整套调色板；强调色（amber 系列）转发到
-/// `ThemeSettings.shared.accent` 的主题色套件，均随设置切换实时刷新。
+/// 外观主题（跟随系统 / 白昼放映厅 / 暗房）转发到
+/// `ThemeSettings.shared.theme` 的整套调色板；强调色（amber 系列）采用经典琥珀色设计令牌。
 enum Theme {
 
     // MARK: - 调色板（语义令牌，转发当前完整主题）
@@ -32,21 +31,21 @@ enum Theme {
     /// 进度条轨道
     static var track: Color { ThemeSettings.shared.theme.palette.track }
 
-    /// 主题强调色（文字 / 进度 / 点睛；随设置的主题色套件切换，默认琥珀）
-    static var amber: Color { ThemeSettings.shared.accent.accent }
+    /// 主题强调色（文字 / 进度 / 点睛；经典琥珀色系）
+    static let amber = dynamic(light: hex(0xC07A14), dark: hex(0xE8A33D))
     /// 主按钮底色（深浅一致）
-    static var amberBtn: Color { ThemeSettings.shared.accent.button }
+    static let amberBtn = Color(nsColor: hex(0xE8A33D))
     /// 主按钮上的文字色
-    static var amberOn: Color { ThemeSettings.shared.accent.buttonOn }
+    static let amberOn = dynamic(light: hex(0x2A1B06), dark: hex(0x1A1208))
     /// 强调渐亮端（进度条渐变）
-    static var amberHi: Color { ThemeSettings.shared.accent.highlight }
+    static let amberHi = Color(nsColor: hex(0xF5C063))
 
     // MARK: - 状态徽标配色（底 / 字）
 
     static let doneBg = dynamic(light: hex(0x2B9664, alpha: 0.13), dark: hex(0x43B581, alpha: 0.25))
     static let doneTx = dynamic(light: hex(0x2E8F63), dark: hex(0x7FE0B2))
-    static var doingBg: Color { ThemeSettings.shared.accent.doingBg }
-    static var doingTx: Color { ThemeSettings.shared.accent.doingTx }
+    static let doingBg = dynamic(light: hex(0xC07A14, alpha: 0.14), dark: hex(0xE8A33D, alpha: 0.26))
+    static let doingTx = dynamic(light: hex(0xC07A14), dark: hex(0xF5C063))
     static let todoBg = dynamic(light: hex(0x6E788C, alpha: 0.14), dark: hex(0x77809A, alpha: 0.30))
     static let todoTx = dynamic(light: hex(0x6A7386), dark: hex(0xB9C0D4))
 
