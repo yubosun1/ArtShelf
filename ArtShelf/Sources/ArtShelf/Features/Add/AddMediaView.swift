@@ -672,8 +672,20 @@ struct AddMediaView: View {
 
     // MARK: - 选用与手动录入
 
+    /// 离开编辑态 / 切换收录方式：作废在途的元数据提取与 EPUB 提取任务，
+    /// 防止旧会话的结果污染新一轮草稿（choose / startManualAdd / cancelEditing 共用）
+    private func invalidateInFlightFetches() {
+        metadataTask?.cancel()
+        metadataSequence += 1
+        isFetchingMetadata = false
+        epubTask?.cancel()
+        epubSequence += 1
+        isExtractingCover = false
+    }
+
     /// 选用搜索结果：预填表单后进入编辑（资料链接预填，观看链接留给用户手动补）
     private func choose(_ result: SearchResult) {
+        invalidateInFlightFetches()
         selectedResultID = result.id
         prefilledEpisodeCount = result.episodeCount
         draft = EntryDraft(
@@ -694,6 +706,7 @@ struct AddMediaView: View {
     }
 
     private func startManualAdd() {
+        invalidateInFlightFetches()
         selectedResultID = nil
         prefilledEpisodeCount = nil
         draft = EntryDraft()
@@ -704,6 +717,7 @@ struct AddMediaView: View {
     }
 
     private func cancelEditing() {
+        invalidateInFlightFetches()
         isEditing = false
         selectedResultID = nil
         prefilledEpisodeCount = nil

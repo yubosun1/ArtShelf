@@ -52,6 +52,8 @@ final class AppState {
     var detailIntent: DetailIntent = .view
     var showingAdd = false
     var searchText = ""
+    /// 详情页未提交手记草稿（按藏品 id）：详情关闭 / 切换藏品不丢失，重开同藏品恢复
+    var noteDrafts: [UUID: String] = [:]
     /// ⌘F 聚焦搜索框的信号（自增即可）
     var searchFocusTick = 0
 

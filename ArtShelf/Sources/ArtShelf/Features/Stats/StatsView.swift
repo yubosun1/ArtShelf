@@ -423,7 +423,8 @@ struct StatsView: View {
                 // 格子随栏宽自适应放大（上限 28pt），12 周列组尽量铺满栏宽，
                 // 与对栏的柱图在视觉重量上平衡
                 GeometryReader { geo in
-                    let side = min(28, (geo.size.width - 11 * 3) / 12)
+                    // 上限 28pt、下限 0：防御窄栏负值（当前窗口宽度下不可达，防未来布局改动）
+                    let side = min(28, max(0, (geo.size.width - 11 * 3) / 12))
                     HStack(spacing: 3) {
                         ForEach(0..<12, id: \.self) { week in
                             VStack(spacing: 3) {

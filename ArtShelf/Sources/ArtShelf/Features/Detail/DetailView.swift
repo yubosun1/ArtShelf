@@ -21,9 +21,8 @@ struct DetailView: View {
     @State private var noteText = ""
     @State private var watchInput = ""
 
-    /// 手记草稿按藏品保留：详情内切换藏品时草稿不丢，提交成功后才移除
-    @State private var noteDrafts: [UUID: String] = [:]
-    /// 上一次 syncLocals 同步到的藏品 id（用于归档切换前的草稿）
+    /// 手记草稿按藏品保留（进程级，存于 AppState.noteDrafts）：详情关闭 / 切换藏品不丢，提交成功后才移除
+    /// 上一次 syncLocals 同步到的藏品 id（用于归档切换前的草稿与输入提交）
     @State private var lastSyncedID: UUID?
 
     /// 焦点目标：总量输入框 / 观看链接输入框（失焦提交）/ 手记编辑器（「记一笔」意图置焦）
@@ -45,6 +44,11 @@ struct DetailView: View {
         .task(id: itemID) {
             syncLocals()
             applyDetailIntent()
+        }
+        .onDisappear {
+            // 关闭详情（Esc / 切 Tab / 打开其他页面）：视图销毁时 @State 输入会丢，
+            // 先把可提交输入落库、手记归档到进程级草稿，重开同藏品可恢复
+            commitDrafts()
         }
     }
 
@@ -418,7 +422,9 @@ struct DetailView: View {
             totalInput = "\(value)"
             // 仅写总量：不截断已记录进度、不触发状态流转
             // （改小总量不能再把 current min 截断或误置「已完成」，避免进度不可逆丢失）
-            store.setTotal(item, total: value)
+            if value != item.progressTotal {
+                store.setTotal(item, total: value)
+            }
         } else {
             // 非法输入回退显示当前总量
             totalInput = item.progressTotal > 0 ? "\(item.progressTotal)" : ""
@@ -485,7 +491,7 @@ struct DetailView: View {
         store.addNote(item, text: text)
         noteText = ""
         // 已提交，清掉该藏品的未提交草稿
-        noteDrafts.removeValue(forKey: item.id)
+        appState.noteDrafts.removeValue(forKey: item.id)
     }
 
     private func noteCard(_ item: MediaItem, _ note: NoteEntry) -> some View {
@@ -720,24 +726,39 @@ struct DetailView: View {
     // MARK: - 本地状态同步
 
     /// 详情打开或切换藏品时，把 store 快照写回编辑态（标签 / 总量输入框），
-    /// 手记草稿按藏品归档：切换前先存下旧藏品的未提交草稿，再恢复新藏品的草稿；
+    /// 切换前先提交旧藏品的未提交输入（总量 / 观看链接）并把未提交手记归档到
+    /// 进程级草稿（appState.noteDrafts）——关闭详情（Esc / 切 Tab）后重开同藏品可恢复；
     /// 封面主色光晕每次重置
     private func syncLocals() {
-        // 先把上一个藏品的未提交手记归档（空 / 纯空白则移除，不占缓存）
-        if let previousID = lastSyncedID {
+        // 先把上一个藏品的未提交输入落库、手记归档（空 / 纯空白则移除，不占缓存）
+        if let previousID = lastSyncedID, let previous = store.item(for: previousID) {
+            commitTotal(previous)
+            commitWatchURL(previous)
             if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                noteDrafts.removeValue(forKey: previousID)
+                appState.noteDrafts.removeValue(forKey: previousID)
             } else {
-                noteDrafts[previousID] = noteText
+                appState.noteDrafts[previousID] = noteText
             }
         }
         guard let item else { return }
         tagText = item.tags.joined(separator: "，")
         totalInput = item.progressTotal > 0 ? "\(item.progressTotal)" : ""
         watchInput = item.webURL ?? ""
-        noteText = noteDrafts[item.id] ?? ""
+        noteText = appState.noteDrafts[item.id] ?? ""
         glowColor = nil
         lastSyncedID = item.id
+    }
+
+    /// 关闭详情前抢救：把最后一次同步的藏品输入提交入库存、手记归档（onDisappear 专用）
+    private func commitDrafts() {
+        guard let id = lastSyncedID, let item = store.item(for: id) else { return }
+        commitTotal(item)
+        commitWatchURL(item)
+        if noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appState.noteDrafts.removeValue(forKey: id)
+        } else {
+            appState.noteDrafts[id] = noteText
+        }
     }
 
     /// 「记一笔」意图：落地详情页时自动聚焦手记编辑器，

@@ -16,10 +16,42 @@ enum LibraryMigration {
     // MARK: - 文档格式
 
     /// v3 库文档（存储与导出共用）
+    ///
+    /// 解码为逐条容错：单条条目类型不符（如手改 JSON 的 `"year": "2000"`、`"rating": "5"`）
+    /// 只丢弃该条，不拖垮整库解码（否则全库被判损坏 → 备份 → 空库启动）。
+    /// `droppedCount` 记录被丢弃的坏条目数（不落盘），供调用方判定「全部坏」场景。
     struct LibraryDocument: Codable {
         var schemaVersion: Int = LibraryMigration.schemaVersion
         var exportedAt: Date = Date()
         var items: [MediaItem]
+        /// 解码时被丢弃的坏条目数（只读，不参与编解码）
+        var droppedCount: Int = 0
+
+        init(items: [MediaItem]) {
+            self.items = items
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case schemaVersion, exportedAt, items
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? LibraryMigration.schemaVersion
+            exportedAt = try c.decodeIfPresent(Date.self, forKey: .exportedAt) ?? Date()
+            let raw = try c.decode([FailableItem].self, forKey: .items)
+            let values = raw.compactMap(\.value)
+            droppedCount = raw.count - values.count
+            items = values
+        }
+
+        /// 逐条容错包装：MediaItem 解码失败（任一字段类型不符）时该条置 nil，由上层丢弃
+        private struct FailableItem: Decodable {
+            let value: MediaItem?
+            init(from decoder: Decoder) {
+                value = try? MediaItem(from: decoder)
+            }
+        }
     }
 
     /// v2 包装格式（`{"items":…, "tagOrder":…}`）；v1 为纯数组
@@ -62,6 +94,16 @@ enum LibraryMigration {
             // v3：schemaVersion == 3
             if probe?.schemaVersion == schemaVersion {
                 if let doc = try? JSONDecoder().decode(LibraryDocument.self, from: data) {
+                    // 条目全部为坏数据：按损坏处理（备份 + 空库启动），
+                    // 避免空库保存覆盖仍有可恢复数据的原文件
+                    if doc.items.isEmpty && doc.droppedCount > 0 {
+                        backupCorrupt(file, in: directory)
+                        logger.error("v3 库文件条目全部无法解析，已备份损坏文件")
+                        return .failed("原始文件已备份在 ~/Library/Application Support/ArtShelf/ 中，当前以空库启动。")
+                    }
+                    if doc.droppedCount > 0 {
+                        logger.warning("v3 库文件有 \(doc.droppedCount) 条条目无法解析，已跳过")
+                    }
                     return .loaded(doc.items)
                 }
                 // 版本头为 v3 但内容无法解析：按损坏处理，不能落入 legacy 分支误生成 v2 备份

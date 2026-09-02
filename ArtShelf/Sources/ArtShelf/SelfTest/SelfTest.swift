@@ -207,6 +207,44 @@ enum SelfTest {
         }
 
         withTempDir { dir in
+            // 单条字段类型不符（如手改 JSON 的 "year": "2000"）：只丢坏条目，不拖垮整库
+            write("""
+            {
+              "schemaVersion": 3,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "正常", "type": "影视", "year": 2000 },
+                { "id": "F621E1F8-C36C-495A-93FC-0C247A3E6E60", "title": "坏年", "type": "影视", "year": "2000" },
+                { "id": "A621E1F8-C36C-495A-93FC-0C247A3E6E61", "title": "坏评分", "type": "音乐", "rating": "5" }
+              ]
+            }
+            """, in: dir)
+            guard case .loaded(let items) = LibraryMigration.load(from: dir) else {
+                return check(false, "含类型不符条目的 v3 文档应可加载")
+            }
+            checkEqual(items.count, 1, "类型不符条目被跳过，好条目保留")
+            checkEqual(items[0].title, "正常", "好条目内容不受影响")
+        }
+
+        withTempDir { dir in
+            // 条目全部为坏数据：按损坏处理——备份 + 空库启动，防止覆盖可恢复原文件
+            write("""
+            {
+              "schemaVersion": 3,
+              "exportedAt": 700000000,
+              "items": [
+                { "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "title": "坏", "type": "影视", "year": "2000" }
+              ]
+            }
+            """, in: dir)
+            guard case .failed = LibraryMigration.load(from: dir) else {
+                return check(false, "条目全部坏应按损坏处理")
+            }
+            let contents = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+            check(contents.contains { $0.hasPrefix("library.json.corrupt-") }, "全坏条目备份为 corrupt")
+        }
+
+        withTempDir { dir in
             // referenceURL / progressUnit 新字段解析；旧数据缺字段或未知单位值均容错为 nil
             write("""
             {
@@ -317,6 +355,41 @@ enum SelfTest {
             store.add(item)
             store.updateProgress(item, current: 100, total: 100)
             checkEqual(store.item(for: item.id)?.status, .completed, "进度填满自动品完")
+        }
+
+        withTempDir { dir in
+            // 已完成条目仅扩总量（current 不变）：属元数据修改，不回落、不动品味时间
+            let store = LibraryStore(directory: dir)
+            let item = MediaItem(title: "测试", type: .movie)
+            store.add(item)
+            store.updateProgress(item, current: 100, total: 100)
+            let done = store.item(for: item.id)
+            checkEqual(done?.status, .completed, "前置：进度填满已完成")
+            guard let tasted = done?.lastTastedAt else { return check(false, "前置：应有品味时间") }
+            store.updateProgress(item, current: 100, total: 200)
+            let updated = store.item(for: item.id)
+            checkEqual(updated?.status, .completed, "仅扩总量不回落")
+            checkEqual(updated?.progressCurrent, 100, "扩总量不改当前进度")
+            checkEqual(updated?.progressTotal, 200, "扩总量生效")
+            checkEqual(updated?.lastTastedAt, tasted, "仅扩总量不刷新品味时间")
+        }
+
+        withTempDir { dir in
+            // 版本过新加载失败：任何保存都被拦截，原文件不被空库覆盖（数据安全底线）
+            let future = """
+            {
+              "schemaVersion": 4,
+              "exportedAt": 700000000,
+              "items": []
+            }
+            """
+            write(future, in: dir)
+            let store = LibraryStore(directory: dir)
+            checkNotNil(store.loadFailureMessage, "版本过新有提示")
+            store.add(MediaItem(title: "临时", type: .movie))
+            store.flush()
+            let raw = try? String(contentsOf: dir.appendingPathComponent("library.json"), encoding: .utf8)
+            checkEqual(raw, future, "加载失败后保存被拦截，原文件未被覆盖")
         }
 
         withTempDir { dir in

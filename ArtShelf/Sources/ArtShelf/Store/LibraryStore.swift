@@ -21,6 +21,9 @@ final class LibraryStore {
 
     @ObservationIgnored private let directory: URL
     @ObservationIgnored private var saveWorkItem: DispatchWorkItem?
+    /// 加载失败（版本过新等）后置位：拒绝写盘——原库文件是未来版本数据，
+    /// 任何保存都会用 v3 空库覆盖它（LibraryMigration 契约：不备份 / 不写盘）
+    @ObservationIgnored private var persistBlocked = false
 
     /// 默认用应用数据目录；测试可注入临时目录
     init(directory: URL = LibraryPaths.appDirectory) {
@@ -53,6 +56,7 @@ final class LibraryStore {
             saveNow()   // 立即落盘为 v3 格式
             Self.logger.info("v2→v3 迁移完成，共 \(items.count) 条")
         case .failed(let message):
+            persistBlocked = true
             loadFailureMessage = message
         }
     }
@@ -66,6 +70,8 @@ final class LibraryStore {
     }
 
     private func saveNow() {
+        // 加载失败（如未来版本文件）时绝不写盘：防抖保存与退出 flush 均被拦截
+        guard !persistBlocked else { return }
         do {
             let doc = LibraryMigration.LibraryDocument(items: items)
             let encoder = JSONEncoder()
@@ -151,8 +157,9 @@ final class LibraryStore {
             i.progressCurrent = cap > 0 ? min(max(0, current), cap) : 0
             if cap > 0 && i.progressCurrent >= cap {
                 i.status = .completed
-            } else if i.status == .completed && i.progressCurrent < cap {
-                // 已完成条目进度被拉到总量以下：回落进行中
+            } else if i.status == .completed && i.progressCurrent != oldCurrent && i.progressCurrent < cap {
+                // 已完成条目进度被拉到总量以下：回落进行中；
+                // current 未变时（仅经 updateProgress 扩总量）不触发流转，与 setTotal 契约一致
                 i.status = .inProgress
             } else if i.status == .planned && i.progressCurrent > 0 {
                 i.status = .inProgress
