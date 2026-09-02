@@ -234,32 +234,66 @@ struct StatsView: View {
 
     private var compositionSection: some View {
         statSection(title: "馆藏构成", subtitle: "COMPOSITION", note: "\(store.items.count) 件馆藏") {
-            VStack(spacing: 12) {
-                ForEach(MediaType.allCases) { type in
-                    compositionRow(type: type)
+            HStack(spacing: 30) {
+                donut
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(MediaType.allCases) { type in
+                        compositionRow(type: type)
+                    }
                 }
-                stackedBar
             }
         }
     }
 
-    /// 类型占比行：色点 + 名称 + 数量 + 百分比
+    /// 类型占比 donut：三段类型色环，中心为总数（与各横向占比条区隔形态）
+    private var donut: some View {
+        let total = max(1, store.items.count)
+        return ZStack {
+            Circle().stroke(Theme.track, lineWidth: 20)
+            ForEach(Array(MediaType.allCases.enumerated()), id: \.element) { index, type in
+                let range = typeFractionRange(index: index, total: total)
+                Circle()
+                    .trim(from: range.start, to: range.end)
+                    .stroke(typeColor(type), style: StrokeStyle(lineWidth: 20, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+            }
+            VStack(spacing: 2) {
+                Text("\(store.items.count)")
+                    .font(.system(size: 22, weight: .heavy))
+                    .foregroundStyle(Theme.ink)
+                Text("件")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.ink3)
+            }
+        }
+        .frame(width: 150, height: 150)
+    }
+
+    /// 第 index 个类型在环上的起止弧度（按 MediaType 声明顺序累计）
+    private func typeFractionRange(index: Int, total: Int) -> (start: CGFloat, end: CGFloat) {
+        let start = MediaType.allCases.prefix(index).reduce(0.0) { $0 + fractionOfType($1, total: total) }
+        return (start, start + fractionOfType(MediaType.allCases[index], total: total))
+    }
+
+    private func fractionOfType(_ type: MediaType, total: Int) -> CGFloat {
+        CGFloat(store.items.filter { $0.type == type }.count) / CGFloat(total)
+    }
+
+    /// 类型占比图例行：色点 + 名称 + 数量 + 百分比
     private func compositionRow(type: MediaType) -> some View {
         let count = store.items.filter { $0.type == type }.count
-        let fraction = store.items.isEmpty ? 0 : Double(count) / Double(store.items.count)
+        let fraction = Double(count) / Double(max(1, store.items.count))
         return HStack(spacing: 10) {
             Circle().fill(typeColor(type)).frame(width: 8, height: 8)
             Text(type.rawValue)
                 .font(Theme.body)
                 .foregroundStyle(Theme.ink)
-            Spacer()
             Text("\(count) 件")
                 .font(Theme.body)
                 .foregroundStyle(Theme.ink2)
             Text("\(Int(round(fraction * 100)))%")
                 .font(Theme.control)
                 .foregroundStyle(Theme.ink3)
-                .frame(width: 38, alignment: .trailing)
         }
     }
 
@@ -272,53 +306,53 @@ struct StatsView: View {
         }
     }
 
-    /// 占比横条：三段按类型占比铺满
-    private var stackedBar: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                ForEach(MediaType.allCases) { type in
-                    let count = store.items.filter { $0.type == type }.count
-                    let fraction = store.items.isEmpty ? 0 : Double(count) / Double(store.items.count)
-                    Rectangle()
-                        .fill(typeColor(type))
-                        .frame(width: max(geo.size.width * fraction, 0))
-                }
-            }
-            .clipShape(Capsule())
-        }
-        .frame(height: 8)
-        .padding(.top, 4)
-    }
-
     // MARK: - 状态分布
 
     private var statusSection: some View {
         statSection(title: "状态分布", subtitle: "STATUS") {
             VStack(spacing: 14) {
-                ForEach(MediaStatus.allCases, id: \.self) { status in
-                    statusRow(status: status)
+                statusStack
+                HStack(spacing: 20) {
+                    ForEach(MediaStatus.allCases, id: \.self) { status in
+                        statusLegend(status: status)
+                    }
                 }
             }
         }
     }
 
-    /// 状态行：徽标色点 + 名称 + 数量 + 占比条
-    private func statusRow(status: MediaStatus) -> some View {
+    /// 三态单条堆叠：全量一图，段长即占比（与「馆藏构成」donut、「评分分布」竖条区分）
+    private var statusStack: some View {
+        let total = Double(max(1, store.items.count))
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.track)
+                HStack(spacing: 0) {
+                    ForEach(MediaStatus.allCases, id: \.self) { status in
+                        let count = store.items.filter { $0.status == status }.count
+                        Capsule()
+                            .fill(Theme.statusColors(status).bg)
+                            .frame(width: max(0, geo.size.width * Double(count) / total))
+                    }
+                }
+            }
+        }
+        .frame(height: 12)
+    }
+
+    /// 状态图例行：徽标色点 + 名称 + 件数与占比
+    private func statusLegend(status: MediaStatus) -> some View {
         let colors = Theme.statusColors(status)
         let count = store.items.filter { $0.status == status }.count
-        let fraction = Double(count) / Double(store.items.count)
-        return VStack(spacing: 6) {
-            HStack(spacing: 10) {
-                Circle().fill(colors.tx).frame(width: 8, height: 8)
-                Text(statusName(status))
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                Text("\(count) 件")
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink2)
-            }
-            ratioBar(fraction: fraction, color: colors.bg)
+        let fraction = Double(count) / Double(max(1, store.items.count))
+        return HStack(spacing: 6) {
+            Circle().fill(colors.tx).frame(width: 8, height: 8)
+            Text(statusName(status))
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink)
+            Text("\(count) 件 · \(Int(round(fraction * 100)))%")
+                .font(Theme.control)
+                .foregroundStyle(Theme.ink3)
         }
     }
 
@@ -339,30 +373,32 @@ struct StatsView: View {
                     .font(Theme.body)
                     .foregroundStyle(Theme.ink3)
             } else {
-                VStack(spacing: 14) {
+                HStack(alignment: .bottom, spacing: 18) {
                     ForEach(1...5, id: \.self) { stars in
-                        ratingRow(stars: stars)
+                        ratingColumn(stars: stars)
                     }
                 }
             }
         }
     }
 
-    /// 单星行：星数 + 琥珀占比条 + 数量（比例轴基为各星数量最大值）
-    private func ratingRow(stars: Int) -> some View {
+    /// 单星竖条：琥珀随星数渐浓（1 星淡 → 5 星实），与横向占比条形成形态对比
+    private func ratingColumn(stars: Int) -> some View {
         let count = store.items.filter { $0.rating == stars }.count
         let fraction = Double(count) / Double(ratingMaxCount)
-        return HStack(spacing: 10) {
-            Text("\(stars) 星")
-                .font(Theme.control)
-                .foregroundStyle(Theme.ink2)
-                .frame(width: 44, alignment: .leading)
-            ratioBar(fraction: fraction, color: Theme.amber)
+        let height = max(8, 88 * fraction)
+        return VStack(spacing: 8) {
             Text("\(count)")
                 .font(Theme.control)
                 .foregroundStyle(Theme.ink3)
-                .frame(width: 30, alignment: .trailing)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Theme.amber.opacity(min(1, 0.2 + 0.2 * Double(stars))))
+                .frame(width: 30, height: height)
+            Text("\(stars) 星")
+                .font(Theme.control)
+                .foregroundStyle(Theme.ink2)
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - 概览（全宽数据行）
