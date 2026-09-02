@@ -94,37 +94,18 @@ struct ContentView: View {
     }
 }
 
-/// 窗口 chrome：全尺寸内容视图 + 红绿灯下移与单行顶栏同轴
+/// 窗口 chrome：全尺寸内容视图 + 透明 titlebar
 ///
-/// hiddenTitleBar 下内容默认从 titlebar 下方开始排、红绿灯钉在窗口顶，
-/// 与顶栏错位两行；这里切全尺寸内容视图（内容延伸到窗口顶，titlebar 透明覆盖）
-/// 并忽略顶部安全区（ContentView.ignoresSafeArea），顶栏 48pt 单行排布，
-/// 三个窗口按钮的中心挪到窗口顶下 21pt（容器内可达的最低位置），
-/// 与顶栏内容中心（24pt）对齐到视觉不可分辨的 3pt 以内。
+/// 启用全尺寸内容视图（内容延伸到窗口顶，titlebar 透明覆盖）
+/// 并忽略顶部安全区（ContentView.ignoresSafeArea），由 TopBarView 顶部预留 28pt
+/// 作为系统红绿灯呼吸区与窗口拖拽区，Tab 导航自然位于其下方。
 @MainActor
 enum WindowChrome {
 
-    /// 按钮中心距窗口顶的目标值：容器高 28pt，按钮完整留在容器内的最低位置是 21pt
-    /// （按钮半径 7pt，中心 21pt 时底边恰好贴容器底）；与顶栏内容中心（28pt）视差可接受
-    private static let targetCenterFromTop: CGFloat = 21
-
-    /// 通知观察者令牌（保留以防自动移除；.main 队列派发，主线程执行）
-    nonisolated(unsafe) private static var observers: [NSObjectProtocol] = []
-
-    /// 启动时调用：设置窗口样式，并挂缩放监听（系统会在缩放时复位按钮位置）
     static func apply() {
-        guard observers.isEmpty else { return }
-        for name: Notification.Name in [NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification] {
-            observers.append(NotificationCenter.default.addObserver(
-                forName: name, object: nil, queue: .main
-            ) { note in
-                guard let window = note.object as? NSWindow else { return }
-                MainActor.assumeIsolated { offsetButtons(of: window) }
-            })
-        }
-        // onAppear 时窗口已存在，但 contentView 挂接可能晚一拍，延后一次兜底
+        applyToWindows()
         DispatchQueue.main.async { applyToWindows() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { applyToWindows() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { applyToWindows() }
     }
 
     private static func applyToWindows() {
@@ -134,21 +115,6 @@ enum WindowChrome {
             }
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            offsetButtons(of: window)
-        }
-    }
-
-    /// 红绿灯中心挪到窗口顶下 21pt（按钮半径约 7pt，完整留在 28pt 高容器内的最低位置）
-    private static func offsetButtons(of window: NSWindow) {
-        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let button = window.standardWindowButton(kind),
-                  let container = button.superview else { continue }
-            // AppKit 坐标 y 向上；容器顶边即窗口顶边
-            let targetMidY = container.bounds.height - targetCenterFromTop
-            let dy = targetMidY - button.frame.midY
-            if abs(dy) > 0.5 {
-                button.frame.origin.y += dy
-            }
         }
     }
 }

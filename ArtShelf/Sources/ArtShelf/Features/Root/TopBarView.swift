@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// 顶栏：Logo + Tab 导航 + 全局搜索（结果浮层锚定搜索框正下方）+ 收录 / 设置入口
+/// 顶栏：系统红绿灯拖拽区（上）+ Tab 导航与全局搜索/设置（下）
 ///
-/// 单行 chrome（48pt）：系统红绿灯下移到本行视轴（WindowChrome，ContentView），
-/// 左缘为其让位 84pt；右缘与内容区同为 40，保持统一右轴。
+/// 分层结构：
+/// 1. 顶部 28pt 为 macOS 原生红绿灯留出自然呼吸空间并充当窗口拖拽区；
+/// 2. 下方 44pt 为主操作行（Tab 导航左对齐 40pt，搜索与入口右对齐 40pt，与内容区严格同轴）。
 struct TopBarView: View {
 
     var searchFocused: FocusState<Bool>.Binding
@@ -15,42 +16,31 @@ struct TopBarView: View {
     var body: some View {
         @Bindable var state = appState
 
-        HStack(spacing: 28) {
-            logo
-            tabs
-            Spacer()
-            searchField
-                .overlay(alignment: .bottomTrailing) {
-                    // 结果浮层锚定搜索框正下方：右缘对齐，顶缘距框底 8pt；详情整版打开时不渲染
-                    if !state.searchText.isEmpty, state.detailItemID == nil {
-                        GlobalSearchView()
-                            .alignmentGuide(.bottom) { $0[.top] - 8 }
-                            .transition(.opacity)
+        VStack(spacing: 0) {
+            // 顶部红绿灯区域（为系统红绿灯留出呼吸空间，充当窗口拖拽热区）
+            Color.clear
+                .frame(height: 28)
+
+            // 主导航与操作栏
+            HStack(spacing: 20) {
+                tabs
+                Spacer()
+                searchField
+                    .overlay(alignment: .bottomTrailing) {
+                        // 结果浮层锚定搜索框正下方：右缘对齐，顶缘距框底 8pt；详情整版打开时不渲染
+                        if !state.searchText.isEmpty, state.detailItemID == nil {
+                            GlobalSearchView()
+                                .alignmentGuide(.bottom) { $0[.top] - 8 }
+                                .transition(.opacity)
+                        }
                     }
-                }
-            addButton
-            settingsButton
+                addButton
+                settingsButton
+            }
+            .padding(.horizontal, Theme.contentPadding)
+            .frame(height: 44)
         }
-        .padding(.leading, 84)    // 为同行的系统红绿灯让位（反馈：菜单须紧贴红绿灯）
-        .padding(.trailing, 40)   // 右缘与内容区 Theme.contentPadding 同轴
-        .frame(height: 48)        // 单行 chrome：内容中心 24pt ≈ 红绿灯可达视轴（21pt）
         .background(Theme.titlebar)
-    }
-
-    // MARK: - Logo
-
-    private var logo: some View {
-        HStack(spacing: 9) {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(AngularGradient(
-                    colors: Theme.prismColors,
-                    center: .center
-                ))
-                .frame(width: 18, height: 18)
-            Text("ArtShelf")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.ink)
-        }
     }
 
     // MARK: - Tab 导航
