@@ -8,6 +8,7 @@ struct StatsView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(LibraryStore.self) private var store
+    @Environment(\.colorScheme) private var scheme
 
     // MARK: - 派生统计
 
@@ -112,36 +113,66 @@ struct StatsView: View {
     // MARK: - 页面
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                if store.items.isEmpty {
-                    emptyState
-                } else {
-                    cardGrid.padding(.top, 28)
+        ZStack(alignment: .top) {
+            statsAmbient
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    if store.items.isEmpty {
+                        emptyState
+                    } else {
+                        cardGrid.padding(.top, 28)
+                    }
                 }
+                .padding(.horizontal, Theme.contentPadding)
             }
-            .padding(.horizontal, Theme.contentPadding)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
     }
 
-    /// 页头：小标 + 标题 + 导语
+    // MARK: - 整页氛围场
+
+    /// 全窗琥珀氛围光（与「库页」同一套光语：顶部淡 wash + 大半径光晕），
+    /// 向上溢出 80pt 至透明顶栏后方，统计页顶部与「此刻」「库页」同处连续光场。
+    /// 统计页不归属单一类型色，采用品牌强调琥珀——页内评分条 / 热力图 / 占比条
+    /// 均以此为强调，光场与内容同色不打架。
+    ///
+    /// 注意：必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是
+    /// 滚动内容尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）。
+    private var statsAmbient: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                LinearGradient(
+                    colors: [Theme.amberBtn.opacity(0.08), .clear],
+                    startPoint: .top, endPoint: .bottom
+                )
+                AmbientGlow(color: Theme.amberBtn, radius: 380)
+                    .frame(width: 980, height: 820)
+                    .offset(x: -180, y: -280)
+            }
+            .opacity(Theme.ambientOpacity(scheme))
+            .frame(width: geo.size.width, height: geo.size.height + 80)
+            .offset(y: -80)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// 页头：小标 + 标题 + 导语（规格与「库页」页头同轴：kicker tracking 3、标题 sectionTitle、同款上下边距）
     private var header: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("STATS")
                 .font(Theme.kicker)
-                .tracking(2)
+                .tracking(3)
                 .foregroundStyle(Theme.ink3)
             Text("统计")
-                .font(.system(size: 28, weight: .bold))
+                .font(Theme.sectionTitle)
                 .foregroundStyle(Theme.ink)
             Text("你的品味数据全部来自本地馆藏，一目了然。")
                 .font(Theme.body)
                 .foregroundStyle(Theme.ink2)
         }
-        .padding(.top, 24)
-        .padding(.bottom, Theme.sectionSpacing)
+        .padding(.top, Theme.sectionSpacing)
+        .padding(.bottom, 28)
     }
 
     /// 八张统计卡片（自适应 2–3 列网格）
