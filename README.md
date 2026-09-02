@@ -118,15 +118,21 @@ cd ArtShelf
 ./build.sh          # 编译 release、打包并安装到 /Applications
 ```
 
-构建后从启动台或 `/Applications/ArtShelf.app` 启动。更多开发命令见 [AGENTS.md](AGENTS.md)。
+常用开发与调试命令：
+
+```bash
+cd ArtShelf && swift build                     # 仅编译（调试）
+cd ArtShelf && swift run ArtShelf --self-test  # 运行内置数据层自测
+```
+
+构建后从启动台或 `/Applications/ArtShelf.app` 启动。
 
 ## 项目结构
 
 ```
 ArtShelf/
 ├── build.sh                  # 构建、打包与安装脚本
-├── design-proposals/         # v3 视觉概念稿（HTML，浏览器打开）
-├── docs/                     # 产品与技术文档、截图
+├── docs/                     # 文档资源与界面截图
 └── ArtShelf/                 # Swift Package 源码
     ├── Package.swift
     ├── Resources/            # Info.plist 与图标资源
@@ -139,11 +145,6 @@ ArtShelf/
         ├── SelfTest/         # 内置数据层自测（仅 Debug）
         └── Features/         # 按页面组织视图（Root/Now/Library/Detail/Add/Stats/Settings）
 ```
-
-## 文档
-
-- [docs/product-design.md](docs/product-design.md) —— 产品设计方案（定位、页面、视觉系统、数据口径）
-- [docs/tech-architecture.md](docs/tech-architecture.md) —— 技术方案（分层、数据层、迁移、设计系统实现）
 
 ## 开源许可证
 

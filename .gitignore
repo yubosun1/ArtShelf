@@ -23,3 +23,9 @@ DerivedData/
 # 图标生成中间产物
 ArtShelf/Resources/icon_*.png
 ArtShelf/ArtShelf.iconset/
+
+# 内部设计与开发文档
+AGENTS.md
+docs/product-design.md
+docs/tech-architecture.md
+design-proposals/
