@@ -223,8 +223,11 @@ struct NowHeroView: View {
                             QueueCard(entry: entry, width: 280)
                         }
                     }
+                    // 同理：队列卡阴影（半径 4 + 下偏 3 + 悬停上浮 2）在滚动框内散尽
+                    .padding(.vertical, 12)
                 }
                 .scrollIndicators(.hidden)
+                .padding(.vertical, -12)
             }
         }
     }

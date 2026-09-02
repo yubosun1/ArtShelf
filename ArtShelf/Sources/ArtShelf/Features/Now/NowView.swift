@@ -53,10 +53,12 @@ struct NowView: View {
 
     /// 全窗连续氛围：封面超大虚化铺底 + 三层径向光团（沿用 Hero 配方），
     /// 再以纵向渐变向画布色沉降收敛，页面自上而下无水平分界。
-    /// 向上溢出 80pt 至透明顶栏后方，窗口顶部整片处在同一光场中。
     ///
-    /// 注意：必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是
-    /// 滚动内容尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）。
+    /// 注意两点：
+    /// 1. 必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是滚动内容
+    ///    尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）；
+    /// 2. 四边须溢出窗口 240pt（远大于模糊半径 100）——高斯模糊在图像边缘有 alpha
+    ///    衰减带，溢出不足时衰减带会落在窗口可见区，形成全宽明暗硬线（实测复现）。
     @ViewBuilder
     private var pageAmbient: some View {
         if let hero = inProgress.first {
@@ -75,19 +77,19 @@ struct NowView: View {
                             // 1. 左侧大面积主色光团
                             RadialGradient(
                                 colors: [heroGlow.opacity(0.60), .clear],
-                                center: .init(x: 0.22, y: 0.24),
+                                center: .init(x: 0.22, y: 0.26),
                                 startRadius: 30, endRadius: 640
                             )
                             // 2. 右下方深层冷暖对比次色
                             RadialGradient(
                                 colors: [secondary.opacity(0.48), .clear],
-                                center: .init(x: 0.70, y: 0.72),
+                                center: .init(x: 0.70, y: 0.68),
                                 startRadius: 40, endRadius: 560
                             )
                             // 3. 右上方琥珀暖调微光
                             RadialGradient(
                                 colors: [Theme.amberBtn.opacity(0.22), .clear],
-                                center: .init(x: 0.85, y: 0.08),
+                                center: .init(x: 0.85, y: 0.12),
                                 startRadius: 20, endRadius: 400
                             )
                         }
@@ -105,8 +107,8 @@ struct NowView: View {
                         startPoint: .top, endPoint: .bottom
                     )
                 }
-                .frame(width: geo.size.width, height: geo.size.height + 80)
-                .offset(y: -80)
+                .frame(width: geo.size.width + 480, height: geo.size.height + 480)
+                .offset(x: -240, y: -240)
             }
             .allowsHitTesting(false)
         }
@@ -229,11 +231,15 @@ struct MediaSectionRow: View {
                         }
                     }
                     .padding(.horizontal, Theme.contentPadding)
-                    // 概念稿 .row padding：上 4 防光晕裁切、底 18 留出卡后呼吸位
-                    .padding(.top, 4)
-                    .padding(.bottom, 18)
+                    // 行内上下大留白：卡片光晕（半径 44 + 下偏 18 + 悬停上浮）必须在滚动框内
+                    // 自然散尽——ScrollView 会把阴影裁剪到自身边界，余量不足时卡片上下
+                    // 各出现一条硬线；外侧再用负边距收回，视觉间距保持上 4 / 底 18 不变
+                    .padding(.top, 68)
+                    .padding(.bottom, 82)
                 }
                 .scrollIndicators(.hidden)
+                .padding(.top, -64)
+                .padding(.bottom, -64)
             }
             .padding(.top, Theme.sectionSpacing)
         }
