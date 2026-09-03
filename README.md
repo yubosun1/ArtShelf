@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.3.0-blue" alt="Version 3.3.0">
+  <img src="https://img.shields.io/badge/version-3.3.1-blue" alt="Version 3.3.1">
   <img src="https://img.shields.io/badge/macOS-14.0%2B-333333?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-6%20%7C%20SwiftUI-FA7343?logo=swift" alt="Swift 6">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
@@ -84,6 +84,12 @@
 - **策展手记条目化**：每件藏品多条手记，按时间倒序，是品味的回响而非备注栏
 - **观看链接与资料链接分离**：豆瓣 / 维基资料页搜索时自动带上、只读查阅；在线观看链接由你手动粘贴，详情页一键唤起
 - 0–5 星评分、多标签归档、「再看一遍」自动累计重温次数
+
+### 纯净画册式统计与时光足迹
+
+- **Editorial 杂志画册排版**：彻底告别生硬的卡片框与 AI 仪表盘盒子感，数据在暗房微光中自然生长，由排版轴线与微发丝线构建高雅秩序
+- **全景概览与等高双栏**：顶栏 6 组核心数据宏观铺陈；中层分类甜甜圈与品味流转、5 星水平分布与偏好创作者 TOP 5 严格等高平衡
+- **流体自适应热力网格**：过去 1 年（52 周）收录热力矩阵，自适应任何窗口尺寸；带顶部月份横轴与星期纵轴，清晰串联每一天的品味时光
 
 ### 元数据自动补全（零 API Key）
 
