@@ -28,11 +28,12 @@ enum PreviewRenderer {
         render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "1-now-dark", height: 820)
         render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "2-now-light", height: 820)
         // 三个库页 + 统计（深色），并附加统计浅色渲染
-        for (tab, name) in [(AppTab.movies, "3-movies-dark"), (.music, "4-music-dark"), (.books, "5-books-dark"), (.stats, "6-stats-dark")] {
+        for (tab, name) in [(AppTab.movies, "3-movies-dark"), (.music, "4-music-dark"), (.books, "5-books-dark")] {
             appState.tab = tab
             render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: name, height: 820)
         }
         appState.tab = .stats
+        render(ContentView(), store: store, appState: appState, appearance: dark, to: out, name: "6-stats-dark", height: 820)
         render(ContentView(), store: store, appState: appState, appearance: light, to: out, name: "6-stats-light", height: 820)
         // 详情整版（深色）：用按集进度的剧集
         appState.tab = .now

@@ -5,7 +5,8 @@ import SwiftUI
 /// 设计哲学：
 /// - 零卡片壳、零多余边框，纯净数据画布与暗房光晕融为一体（去除 AI 仪表盘盒子感）
 /// - 靠空间留白、轴线对齐（Grid Alignment）与克制发丝线（Hairline Rules）建立坚实秩序
-/// - 左右栏体量严格等高对齐，彻底消除散乱与高矮割裂
+/// - 热力图全宽铺展（近 1 年 52 周），精确标注月份横轴与星期纵轴
+/// - 月度趋势柱状图带基准底线，严格自底向上生长
 struct StatsView: View {
 
     @Environment(AppState.self) private var appState
@@ -45,11 +46,11 @@ struct StatsView: View {
         }
     }
 
-    /// 热力图起点：本周周首日往前 11 周的周首日（共 12 周 × 7 天）
+    /// 热力图起点：本周周首日往前 51 周的周首日（共 52 周 × 7 天，整整 1 年足迹）
     private var heatmapStart: Date {
         let cal = Calendar.current
         let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date()))!
-        return cal.date(byAdding: .weekOfYear, value: -11, to: weekStart)!
+        return cal.date(byAdding: .weekOfYear, value: -51, to: weekStart)!
     }
 
     /// 每日收录计数（键 = 自热力图起点起的天数偏移）
@@ -58,9 +59,33 @@ struct StatsView: View {
         var counts: [Int: Int] = [:]
         for item in store.items {
             let offset = cal.dateComponents([.day], from: heatmapStart, to: cal.startOfDay(for: item.dateAdded)).day ?? -1
-            if offset >= 0 { counts[offset, default: 0] += 1 }
+            if offset >= 0 && offset < 52 * 7 {
+                counts[offset, default: 0] += 1
+            }
         }
         return counts
+    }
+
+    /// 热力图月份横轴标签：计算每隔一个月对应周的横向偏移与月份名
+    private var heatmapMonthLabels: [(offset: CGFloat, label: String)] {
+        let cal = Calendar.current
+        let side: CGFloat = 18
+        let spacing: CGFloat = 3.5
+        var labels: [(CGFloat, String)] = []
+        var lastMonth = -1
+        var lastOffset: CGFloat = -100
+
+        for week in 0..<52 {
+            let weekDate = cal.date(byAdding: .weekOfYear, value: week, to: heatmapStart)!
+            let month = cal.component(.month, from: weekDate)
+            let offset = CGFloat(week) * (side + spacing)
+            if month != lastMonth && (offset - lastOffset) >= 42 {
+                labels.append((offset, "\(month)月"))
+                lastMonth = month
+                lastOffset = offset
+            }
+        }
+        return labels
     }
 
     /// 近 6 个月收录（旧→新）：月份标签 + 各类型件数
@@ -141,7 +166,7 @@ struct StatsView: View {
         .allowsHitTesting(false)
     }
 
-    /// 页头：小标 + 标题 + 导语（与库页规范完全同轴）
+    /// 页头：小标 + 标题 + 导语
     private var header: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("STATS")
@@ -162,7 +187,7 @@ struct StatsView: View {
     // MARK: - Editorial 画布主体
 
     private var editorialContent: some View {
-        VStack(alignment: .leading, spacing: 32) {
+        VStack(alignment: .leading, spacing: 36) {
             // 1. 顶部概览数据排（无边框，优雅发丝线分割）
             overviewRow
 
@@ -172,10 +197,10 @@ struct StatsView: View {
                 ratingsAndCreatorsSection
             }
 
-            // 3. 底层时光足迹
+            // 3. 底层时光足迹与收录节奏（全宽展开）
             timelineSection
         }
-        .padding(.bottom, 48)
+        .padding(.bottom, 54)
     }
 
     // MARK: - 1. 概览数据排 (Overview Row)
@@ -583,151 +608,98 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - 4. 时光足迹与收录节奏 (Timeline & Footprints)
+    // MARK: - 4. 时光足迹与收录节奏 (Timeline & Activity - 全宽铺展)
 
     private var timelineSection: some View {
         let counts = heatmapCounts
         let total = counts.values.reduce(0, +)
 
-        return VStack(alignment: .leading, spacing: 18) {
+        return VStack(alignment: .leading, spacing: 24) {
             sectionTitleRow(
                 title: "时光足迹与收录节奏",
-                subtitle: "TIMELINE & FOOTPRINTS",
-                note: "近 12 周共收录 \(total) 件"
+                subtitle: "TIMELINE & ACTIVITY",
+                note: "近 1 年共收录 \(total) 件"
             )
 
-            HStack(alignment: .top, spacing: 44) {
-                // 左区：月度趋势
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("月度收录趋势")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Theme.ink2)
-                        Spacer()
-                        trendLegend
-                    }
+            // 1. 全宽收录热力网格（52 周 · 满幅铺开 · 带月份横轴）
+            heatmapFullWidthSection(counts: counts)
 
-                    monthlyTrendView
-                }
-                .frame(maxWidth: .infinity)
+            // 细发丝分割线
+            Rectangle()
+                .fill(Theme.rule.opacity(0.7))
+                .frame(height: 1)
+                .padding(.vertical, 4)
 
-                // 纵向发丝分隔线
-                Rectangle()
-                    .fill(Theme.rule)
-                    .frame(width: 1, height: 116)
-
-                // 右区：热力网格
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("活动热力网格")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Theme.ink2)
-                        Spacer()
-                        heatmapLegend
-                    }
-
-                    heatmapGrid(counts: counts)
-                }
-                .frame(maxWidth: .infinity)
-            }
+            // 2. 近 6 个月趋势（严格自底向上生长 · 贯通基准底线）
+            monthlyTrendSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var monthlyTrendView: some View {
-        let months = monthlyTrend
-        let maxCount = max(1, months.map(\.total).max() ?? 0)
-
-        return HStack(alignment: .bottom, spacing: 0) {
-            ForEach(Array(months.enumerated()), id: \.offset) { _, month in
-                VStack(spacing: 5) {
-                    Text("\(month.total)")
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(month.total > 0 ? Theme.ink2 : Theme.ink3)
-
-                    ZStack(alignment: .bottom) {
-                        trendStackedBar(month: month, maxCount: maxCount)
-                    }
-                    .frame(height: 64)
-
-                    Text(month.label)
-                        .font(.system(size: 10))
-                        .foregroundStyle(Theme.ink3)
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
-    }
-
-    private func trendStackedBar(month: (label: String, total: Int, counts: [MediaType: Int]), maxCount: Int) -> some View {
-        let barHeight = max(6, 64 * CGFloat(month.total) / CGFloat(maxCount))
-        return Group {
-            if month.total == 0 {
-                Capsule().fill(Theme.track).frame(width: 18, height: 3)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(MediaType.allCases) { type in
-                        let count = month.counts[type] ?? 0
-                        if count > 0 {
-                            Rectangle()
-                                .fill(typeColor(type))
-                                .frame(height: barHeight * CGFloat(count) / CGFloat(month.total))
-                        }
-                    }
-                }
-                .frame(width: 18, height: barHeight)
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 3, style: .continuous))
-            }
-        }
-    }
-
-    private var trendLegend: some View {
-        HStack(spacing: 8) {
-            ForEach(MediaType.allCases) { type in
-                HStack(spacing: 4) {
-                    Circle().fill(typeColor(type)).frame(width: 5, height: 5)
-                    Text(type.rawValue)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(Theme.ink3)
-                }
-            }
-        }
-    }
-
-    private func heatmapGrid(counts: [Int: Int]) -> some View {
-        let side: CGFloat = 12
+    /// 全宽热力网格：52 周（1 年）满幅展开，带月份刻度与对齐星期
+    private func heatmapFullWidthSection(counts: [Int: Int]) -> some View {
+        let side: CGFloat = 18
         let spacing: CGFloat = 3.5
 
-        return HStack(alignment: .top, spacing: 6) {
-            VStack(spacing: spacing) {
-                ForEach(0..<7, id: \.self) { day in
-                    Group {
-                        switch day {
-                        case 0: Text("一")
-                        case 2: Text("三")
-                        case 4: Text("五")
-                        case 6: Text("日")
-                        default: Text("")
-                        }
-                    }
-                    .font(.system(size: 8.5, weight: .medium))
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("收录热力网格")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.ink2)
+                Text("ACTIVITY HEATMAP · 近 1 年")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(0.6)
                     .foregroundStyle(Theme.ink3)
-                    .frame(width: 12, height: side)
-                }
+                Spacer()
+                heatmapLegend
             }
 
-            HStack(spacing: spacing) {
-                ForEach(0..<12, id: \.self) { week in
+            VStack(alignment: .leading, spacing: 6) {
+                // 顶部月份横轴
+                ZStack(alignment: .leading) {
+                    ForEach(Array(heatmapMonthLabels.enumerated()), id: \.offset) { _, item in
+                        Text(item.label)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Theme.ink3)
+                            .offset(x: item.offset)
+                    }
+                }
+                .frame(height: 14)
+                .padding(.leading, 22) // 避开星期导引文字宽
+
+                // 网格矩阵
+                HStack(alignment: .top, spacing: 8) {
+                    // 星期标签
                     VStack(spacing: spacing) {
-                        ForEach(0..<7, id: \.self) { weekday in
-                            heatmapCell(offset: week * 7 + weekday, counts: counts, side: side)
+                        ForEach(0..<7, id: \.self) { day in
+                            Group {
+                                switch day {
+                                case 0: Text("一")
+                                case 2: Text("三")
+                                case 4: Text("五")
+                                case 6: Text("日")
+                                default: Text("")
+                                }
+                            }
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundStyle(Theme.ink3)
+                            .frame(width: 14, height: side)
+                        }
+                    }
+
+                    // 52 列晶格
+                    HStack(spacing: spacing) {
+                        ForEach(0..<52, id: \.self) { week in
+                            VStack(spacing: spacing) {
+                                ForEach(0..<7, id: \.self) { weekday in
+                                    heatmapCell(offset: week * 7 + weekday, counts: counts, side: side)
+                                }
+                            }
                         }
                     }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 7 * side + 6 * spacing)
     }
 
     private func heatmapCell(offset: Int, counts: [Int: Int], side: CGFloat) -> some View {
@@ -736,7 +708,7 @@ struct StatsView: View {
         let isFuture = date > cal.startOfDay(for: Date())
         let count = isFuture ? 0 : (counts[offset] ?? 0)
 
-        return RoundedRectangle(cornerRadius: 2, style: .continuous)
+        return RoundedRectangle(cornerRadius: 2.5, style: .continuous)
             .fill(isFuture ? Color.clear : heatColor(count))
             .frame(width: side, height: side)
             .help("\(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits))) 收录 \(count) 件")
@@ -752,18 +724,110 @@ struct StatsView: View {
     }
 
     private var heatmapLegend: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             Text("少")
-                .font(.system(size: 9))
+                .font(.system(size: 9.5))
                 .foregroundStyle(Theme.ink3)
             ForEach([0, 1, 2, 3], id: \.self) { level in
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(heatColor(level))
-                    .frame(width: 7.5, height: 7.5)
+                    .frame(width: 8, height: 8)
             }
             Text("多")
-                .font(.system(size: 9))
+                .font(.system(size: 9.5))
                 .foregroundStyle(Theme.ink3)
+        }
+    }
+
+    // MARK: - 5. 近 6 个月月度趋势（严格自底向上拔起 · 贯穿基准线）
+
+    private var monthlyTrendSection: some View {
+        let months = monthlyTrend
+        let maxCount = max(1, months.map(\.total).max() ?? 0)
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("近 6 个月收录节奏")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.ink2)
+                Text("MONTHLY RHYTHM")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(0.6)
+                    .foregroundStyle(Theme.ink3)
+                Spacer()
+                trendLegend
+            }
+
+            VStack(spacing: 0) {
+                // 柱体列组（alignment: .bottom 严格从底线拔起）
+                HStack(alignment: .bottom, spacing: 32) {
+                    ForEach(Array(months.enumerated()), id: \.offset) { _, month in
+                        VStack(spacing: 6) {
+                            Text("\(month.total)")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundStyle(month.total > 0 ? Theme.ink : Theme.ink3)
+
+                            ZStack(alignment: .bottom) {
+                                trendStackedBar(month: month, maxCount: maxCount, maxHeight: 72)
+                            }
+                            .frame(height: 72, alignment: .bottom)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+
+                // 贯通的发丝基准底线（所有柱子踩在基准线上）
+                Rectangle()
+                    .fill(Theme.rule)
+                    .frame(height: 1)
+                    .padding(.top, 4)
+
+                // 月份标签行（位于基线正下方）
+                HStack(spacing: 32) {
+                    ForEach(Array(months.enumerated()), id: \.offset) { _, month in
+                        Text(month.label)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.ink2)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    private func trendStackedBar(month: (label: String, total: Int, counts: [MediaType: Int]), maxCount: Int, maxHeight: CGFloat) -> some View {
+        let barHeight = max(5, maxHeight * CGFloat(month.total) / CGFloat(maxCount))
+        return Group {
+            if month.total == 0 {
+                Capsule().fill(Theme.track).frame(width: 22, height: 3)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(MediaType.allCases) { type in
+                        let count = month.counts[type] ?? 0
+                        if count > 0 {
+                            Rectangle()
+                                .fill(typeColor(type))
+                                .frame(height: barHeight * CGFloat(count) / CGFloat(month.total))
+                        }
+                    }
+                }
+                .frame(width: 22, height: barHeight)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3.5, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 3.5, style: .continuous))
+            }
+        }
+    }
+
+    private var trendLegend: some View {
+        HStack(spacing: 8) {
+            ForEach(MediaType.allCases) { type in
+                HStack(spacing: 4) {
+                    Circle().fill(typeColor(type)).frame(width: 5, height: 5)
+                    Text(type.rawValue)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(Theme.ink3)
+                }
+            }
         }
     }
 
