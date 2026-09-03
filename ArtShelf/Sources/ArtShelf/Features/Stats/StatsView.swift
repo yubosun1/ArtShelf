@@ -1,9 +1,14 @@
 import SwiftUI
 
-/// 「统计」页：馆藏构成 / 状态分布 / 评分分布 / 概览
+/// 「统计」页：Bento Grid 沉浸品味仪表盘
 ///
 /// 口径约束（见 docs/product-design.md §4.5）：所有指标一律从现有字段
 /// 直接派生，不做「品味时长」类指标。
+///
+/// 视觉架构：
+/// - 顶部 Overview KPI Strip（6 个核心指标精致卡片列）
+/// - 中层双栏等高 Bento 卡（馆藏与状态画像卡 vs 评分与创作者卡）
+/// - 底层时光足迹卡（月度堆叠趋势 + 12 周日历热力图）
 struct StatsView: View {
 
     @Environment(AppState.self) private var appState
@@ -12,7 +17,7 @@ struct StatsView: View {
 
     // MARK: - 派生统计
 
-    /// 本月新增件数（与「此刻」数据条同口径，见 LibraryStats）
+    /// 本月新增件数
     private var addedThisMonth: Int { LibraryStats.addedThisMonth(store.items) }
 
     /// 策展笔记总数
@@ -24,15 +29,6 @@ struct StatsView: View {
     /// 已评分条目数
     private var ratedCount: Int { store.items.filter { $0.rating > 0 }.count }
 
-    /// 评分条形纵轴基准：各星数量最大值（至少 1，防除零）
-    private var ratingMaxCount: Int {
-        var maxCount = 1
-        for stars in 1...5 {
-            maxCount = max(maxCount, store.items.filter { $0.rating == stars }.count)
-        }
-        return maxCount
-    }
-
     /// 完成率（已完成 / 总数）
     private var completionRate: Int? {
         guard !store.items.isEmpty else { return nil }
@@ -43,9 +39,7 @@ struct StatsView: View {
     /// 重温总次数
     private var replayTotal: Int { store.items.reduce(0) { $0 + $1.replayCount } }
 
-    /// 最常品味类型（进行中 + 已完成最多者；尚未开品味任何条目时为 nil）。
-    /// 并列时按 MediaType 声明顺序（影视 / 音乐 / 书籍）取先声明者：
-    /// max(by:) 对并列比较器返回 false，保留先见到的类型
+    /// 最常品味类型（进行中 + 已完成最多者；尚未开品味任何条目时为 nil）
     private var mostTastedType: MediaType? {
         let tasted = store.items.filter { $0.status != .planned }
         guard !tasted.isEmpty else { return nil }
@@ -110,7 +104,7 @@ struct StatsView: View {
             }
     }
 
-    // MARK: - 页面
+    // MARK: - 页面主体
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -121,7 +115,7 @@ struct StatsView: View {
                     if store.items.isEmpty {
                         emptyState
                     } else {
-                        content
+                        dashboardContent
                     }
                 }
                 .padding(.horizontal, Theme.contentPadding)
@@ -132,13 +126,6 @@ struct StatsView: View {
 
     // MARK: - 整页氛围场
 
-    /// 全窗琥珀氛围光（与「库页」同一套光语：顶部淡 wash + 大半径光晕），
-    /// 向上溢出 80pt 至透明顶栏后方，统计页顶部与「此刻」「库页」同处连续光场。
-    /// 统计页不归属单一类型色，采用品牌强调琥珀——页内评分条 / 热力图 / 占比条
-    /// 均以此为强调，光场与内容同色不打架。
-    ///
-    /// 注意：必须是 ScrollView 的同级底层而非其 `.background`——后者拿到的是
-    /// 滚动内容尺寸的提案，内容不足一屏时光场会在半腰被硬切断（实测复现）。
     private var statsAmbient: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
@@ -157,9 +144,9 @@ struct StatsView: View {
         .allowsHitTesting(false)
     }
 
-    /// 页头：小标 + 标题 + 导语（规格与「库页」页头同轴：kicker tracking 3、标题 sectionTitle、同款上下边距）
+    /// 页头：小标 + 标题 + 导语
     private var header: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("STATS")
                 .font(Theme.kicker)
                 .tracking(3)
@@ -171,105 +158,208 @@ struct StatsView: View {
                 .font(Theme.body)
                 .foregroundStyle(Theme.ink2)
         }
-        .padding(.top, Theme.sectionSpacing)
-        .padding(.bottom, 28)
+        .padding(.top, 24)
+        .padding(.bottom, 18)
     }
 
-    /// 回顾正文：全宽概览 + 三行双栏交织——窄行类并排、宽图类成行，
-    /// 概览全宽压阵，避免单列长龙的线性清单感
-    private var content: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            overviewRow
-                .padding(.top, 24)
-            HStack(alignment: .top, spacing: 36) {
-                compositionSection
-                statusSection
+    // MARK: - 仪表盘主体
+
+    private var dashboardContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 1. 顶部概览指标行
+            overviewStrip
+
+            // 2. 中层双栏等高 Bento 卡片
+            HStack(alignment: .top, spacing: 16) {
+                collectionAndStatusCard
+                ratingsAndCreatorsCard
             }
-            .padding(.top, Theme.sectionSpacing)
-            HStack(alignment: .top, spacing: 36) {
-                ratingSection
-                creatorSection
-            }
-            .padding(.top, Theme.sectionSpacing)
-            HStack(alignment: .top, spacing: 36) {
-                trendSection
-                heatmapSection
-            }
-            .padding(.top, Theme.sectionSpacing)
+
+            // 3. 底层时光足迹全宽卡片
+            timelineCard
         }
-        .padding(.bottom, 44)
+        .padding(.bottom, 40)
     }
 
-    /// 分节外壳：标题行（大标题 + EN 副标 + 可选注记）+ 内容；
-    /// 节奏与「此刻」分节行同轴（sectionTitle、tracking 0.8、sectionSpacing）
-    private func statSection<Content: View>(
-        title: String,
-        subtitle: String,
-        note: String? = nil,
-        @ViewBuilder content: () -> Content
+    // MARK: - 1. 顶部概览指标行 (Overview KPI Strip)
+
+    private var overviewStrip: some View {
+        HStack(spacing: 10) {
+            overviewItem(
+                icon: "calendar.badge.plus",
+                iconColor: Theme.amber,
+                value: "\(addedThisMonth)",
+                unit: "件",
+                label: "本月新增"
+            )
+            overviewItem(
+                icon: "note.text",
+                iconColor: Color(nsColor: Theme.hex(0x5B82F6)),
+                value: "\(noteCount)",
+                unit: "条",
+                label: "策展笔记"
+            )
+            overviewItem(
+                icon: "star.fill",
+                iconColor: Theme.amber,
+                value: averageRating.map { String(format: "%.1f", $0) } ?? "—",
+                unit: averageRating == nil ? "" : "分",
+                label: "平均评分",
+                footnote: ratedCount > 0 ? "\(ratedCount) 件已评" : nil
+            )
+            overviewItem(
+                icon: "checkmark.circle.fill",
+                iconColor: Color(nsColor: Theme.hex(0x43B581)),
+                value: completionRate.map { "\($0)" } ?? "—",
+                unit: completionRate == nil ? "" : "%",
+                label: "品味完成率"
+            )
+            overviewItem(
+                icon: "arrow.triangle.2.circlepath",
+                iconColor: Color(nsColor: Theme.hex(0x9A5BF6)),
+                value: "\(replayTotal)",
+                unit: "次",
+                label: "重温品味"
+            )
+            overviewItem(
+                icon: "sparkles",
+                iconColor: mostTastedType.map(typeColor) ?? Theme.amber,
+                value: mostTastedType?.rawValue ?? "—",
+                unit: "",
+                label: "偏好类型",
+                accent: mostTastedType.map(typeColor)
+            )
+        }
+    }
+
+    private func overviewItem(
+        icon: String,
+        iconColor: Color,
+        value: String,
+        unit: String,
+        label: String,
+        footnote: String? = nil,
+        accent: Color? = nil
     ) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(Theme.sectionTitle)
-                    .foregroundStyle(Theme.ink)
-                Text(subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.ink3)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 20, height: 20)
+                    .background(iconColor.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 Spacer()
-                if let note {
-                    Text(note)
-                        .font(.system(size: 11))
+                if let footnote {
+                    Text(footnote)
+                        .font(.system(size: 9.5))
                         .foregroundStyle(Theme.ink3)
                 }
             }
-            content()
+
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(accent ?? Theme.ink)
+                    .lineLimit(1)
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Theme.ink3)
+                }
+            }
+
+            Text(label)
+                .font(.system(size: 10))
+                .tracking(0.2)
+                .foregroundStyle(Theme.ink3)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, Theme.sectionSpacing)
+        .background(Theme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Theme.rule, lineWidth: 1)
+        )
     }
 
-    // MARK: - 馆藏构成
+    // MARK: - 2. 馆藏与状态画像卡 (Collection & Status)
 
-    private var compositionSection: some View {
-        statSection(title: "馆藏构成", subtitle: "COMPOSITION", note: "\(store.items.count) 件馆藏") {
-            HStack(spacing: 30) {
-                donut
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(MediaType.allCases) { type in
-                        compositionRow(type: type)
+    private var collectionAndStatusCard: some View {
+        StatsCard(
+            icon: "square.grid.2x2.fill",
+            iconColor: Color(nsColor: Theme.hex(0x5B82F6)),
+            title: "馆藏与品味状态",
+            subtitle: "COLLECTION & STATUS",
+            note: "\(store.items.count) 件馆藏"
+        ) {
+            VStack(spacing: 16) {
+                // 上半部分：馆藏分类构成
+                HStack(spacing: 22) {
+                    donutChart
+                    VStack(spacing: 10) {
+                        ForEach(MediaType.allCases) { type in
+                            mediaTypeRow(type: type)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+
+                // 细分隔线
+                Rectangle()
+                    .fill(Theme.rule)
+                    .frame(height: 1)
+
+                // 下半部分：品味状态流转
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("品味进展")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                        Spacer()
+                    }
+
+                    // 堆叠胶囊条
+                    statusStackBar
+
+                    // 状态徽标与数量
+                    HStack(spacing: 6) {
+                        ForEach(MediaStatus.allCases, id: \.self) { status in
+                            statusTag(status: status)
+                        }
                     }
                 }
             }
         }
     }
 
-    /// 类型占比 donut：三段类型色环，中心为总数（与各横向占比条区隔形态）
-    private var donut: some View {
+    /// Donut 环形图
+    private var donutChart: some View {
         let total = max(1, store.items.count)
         return ZStack {
-            Circle().stroke(Theme.track, lineWidth: 20)
+            Circle()
+                .stroke(Theme.track, lineWidth: 14)
             ForEach(Array(MediaType.allCases.enumerated()), id: \.element) { index, type in
                 let range = typeFractionRange(index: index, total: total)
                 Circle()
                     .trim(from: range.start, to: range.end)
-                    .stroke(typeColor(type), style: StrokeStyle(lineWidth: 20, lineCap: .butt))
+                    .stroke(typeColor(type), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
                     .rotationEffect(.degrees(-90))
             }
-            VStack(spacing: 2) {
+            VStack(spacing: 0) {
                 Text("\(store.items.count)")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(.system(size: 20, weight: .heavy))
                     .foregroundStyle(Theme.ink)
-                Text("件")
-                    .font(.system(size: 10))
+                Text("馆藏")
+                    .font(.system(size: 9.5, weight: .medium))
                     .foregroundStyle(Theme.ink3)
             }
         }
-        .frame(width: 150, height: 150)
+        .frame(width: 96, height: 96)
     }
 
-    /// 第 index 个类型在环上的起止弧度（按 MediaType 声明顺序累计）
     private func typeFractionRange(index: Int, total: Int) -> (start: CGFloat, end: CGFloat) {
         let start = MediaType.allCases.prefix(index).reduce(0.0) { $0 + fractionOfType($1, total: total) }
         return (start, start + fractionOfType(MediaType.allCases[index], total: total))
@@ -279,50 +369,41 @@ struct StatsView: View {
         CGFloat(store.items.filter { $0.type == type }.count) / CGFloat(total)
     }
 
-    /// 类型占比图例行：色点 + 名称 + 数量 + 百分比
-    private func compositionRow(type: MediaType) -> some View {
+    /// 媒体类型行（带比例条与数字）
+    private func mediaTypeRow(type: MediaType) -> some View {
         let count = store.items.filter { $0.type == type }.count
-        let fraction = Double(count) / Double(max(1, store.items.count))
-        return HStack(spacing: 10) {
-            Circle().fill(typeColor(type)).frame(width: 8, height: 8)
-            Text(type.rawValue)
-                .font(Theme.body)
-                .foregroundStyle(Theme.ink)
-            Text("\(count) 件")
-                .font(Theme.body)
-                .foregroundStyle(Theme.ink2)
-            Text("\(Int(round(fraction * 100)))%")
-                .font(Theme.control)
-                .foregroundStyle(Theme.ink3)
-        }
-    }
+        let total = max(1, store.items.count)
+        let fraction = Double(count) / Double(total)
+        let color = typeColor(type)
 
-    /// 三类代表色：影视蓝 / 音乐琥珀 / 书籍绿（Theme 类型色令牌）
-    private func typeColor(_ type: MediaType) -> Color {
-        switch type {
-        case .movie: return Theme.typeMovie
-        case .music: return Theme.typeMusic
-        case .book:  return Theme.typeBook
-        }
-    }
-
-    // MARK: - 状态分布
-
-    private var statusSection: some View {
-        statSection(title: "状态分布", subtitle: "STATUS") {
-            VStack(spacing: 14) {
-                statusStack
-                HStack(spacing: 20) {
-                    ForEach(MediaStatus.allCases, id: \.self) { status in
-                        statusLegend(status: status)
-                    }
+        return VStack(spacing: 4) {
+            HStack(spacing: 7) {
+                Circle().fill(color).frame(width: 6, height: 6)
+                Text(type.rawValue)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Text("\(count) 件")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.ink2)
+                Text("\(Int(round(fraction * 100)))%")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(Theme.ink3)
+                    .frame(width: 32, alignment: .trailing)
+            }
+            // 细长比例条
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.track)
+                    Capsule().fill(color).frame(width: max(0, geo.size.width * fraction))
                 }
             }
+            .frame(height: 4)
         }
     }
 
-    /// 三态单条堆叠：全量一图，段长即占比（与「馆藏构成」donut、「评分分布」竖条区分）
-    private var statusStack: some View {
+    /// 状态堆叠胶囊条
+    private var statusStackBar: some View {
         let total = Double(max(1, store.items.count))
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
@@ -337,224 +418,272 @@ struct StatsView: View {
                 }
             }
         }
-        .frame(height: 12)
+        .frame(height: 7)
     }
 
-    /// 状态图例行：徽标色点 + 名称 + 件数与占比
-    private func statusLegend(status: MediaStatus) -> some View {
-        let colors = Theme.statusColors(status)
+    /// 状态标签条目
+    private func statusTag(status: MediaStatus) -> some View {
         let count = store.items.filter { $0.status == status }.count
         let fraction = Double(count) / Double(max(1, store.items.count))
-        return HStack(spacing: 6) {
-            Circle().fill(colors.tx).frame(width: 8, height: 8)
+        let colors = Theme.statusColors(status)
+
+        return HStack(spacing: 5) {
+            Circle().fill(colors.tx).frame(width: 5, height: 5)
             Text(statusName(status))
-                .font(Theme.body)
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(Theme.ink)
-            Text("\(count) 件 · \(Int(round(fraction * 100)))%")
-                .font(Theme.control)
-                .foregroundStyle(Theme.ink3)
-        }
-    }
-
-    private func statusName(_ status: MediaStatus) -> String {
-        switch status {
-        case .planned:    return "待品味"
-        case .inProgress: return "进行中"
-        case .completed:  return "已完成"
-        }
-    }
-
-    // MARK: - 评分分布
-
-    private var ratingSection: some View {
-        statSection(title: "评分分布", subtitle: "RATING") {
-            if ratedCount == 0 {
-                Text("还没有评分记录")
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink3)
-            } else {
-                HStack(alignment: .bottom, spacing: 18) {
-                    ForEach(1...5, id: \.self) { stars in
-                        ratingColumn(stars: stars)
-                    }
-                }
-            }
-        }
-    }
-
-    /// 单星竖条：琥珀随星数渐浓（1 星淡 → 5 星实），与横向占比条形成形态对比
-    private func ratingColumn(stars: Int) -> some View {
-        let count = store.items.filter { $0.rating == stars }.count
-        let fraction = Double(count) / Double(ratingMaxCount)
-        let height = max(8, 88 * fraction)
-        return VStack(spacing: 8) {
+            Spacer(minLength: 0)
             Text("\(count)")
-                .font(Theme.control)
-                .foregroundStyle(Theme.ink3)
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Theme.amber.opacity(min(1, 0.2 + 0.2 * Double(stars))))
-                .frame(width: 30, height: height)
-            Text("\(stars) 星")
-                .font(Theme.control)
+                .font(.system(size: 10.5, weight: .bold))
                 .foregroundStyle(Theme.ink2)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - 概览（全宽数据行）
-
-    /// 六项大数字横排：与「此刻」数据条同构图（竖分隔线），不加壳直接铺在画布上；
-    /// 原「概览」「品味足迹」两卡在此合流
-    private var overviewRow: some View {
-        HStack(spacing: 18) {
-            overviewStat(label: "本月新增", value: "\(addedThisMonth)", unit: "件")
-            overviewStat(label: "策展笔记", value: "\(noteCount)", unit: "条")
-            overviewStat(
-                label: "平均评分",
-                value: averageRating.map { String(format: "%.1f", $0) } ?? "—",
-                unit: averageRating == nil ? "" : "分"
-            )
-            overviewStat(
-                label: "完成率",
-                value: completionRate.map { "\($0)" } ?? "—",
-                unit: completionRate == nil ? "" : "%"
-            )
-            overviewStat(label: "重温", value: "\(replayTotal)", unit: "次")
-            overviewStat(
-                label: "最常品味",
-                value: mostTastedType?.rawValue ?? "—",
-                accent: mostTastedType.map(typeColor)
-            )
-        }
-    }
-
-    /// 概览单项：大数字 + 单位 + 说明（accent 给「最常品味」类型色着色）
-    private func overviewStat(label: String, value: String, unit: String = "", accent: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value)
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(accent ?? Theme.ink)
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.ink3)
-                }
-            }
-            Text(label)
-                .font(.system(size: 11))
-                .tracking(1)
+            Text("(\(Int(round(fraction * 100)))%)")
+                .font(.system(size: 9))
                 .foregroundStyle(Theme.ink3)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .background(Theme.well)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
-    // MARK: - 收录热力图（近 12 周）
+    // MARK: - 3. 评价与偏爱创作者卡 (Ratings & Top Creators)
 
-    private var heatmapSection: some View {
-        let counts = heatmapCounts
-        let total = counts.values.reduce(0, +)
-        return statSection(title: "收录热力图", subtitle: "HEATMAP", note: "近 12 周") {
-            VStack(spacing: 12) {
-                // 格子随栏宽自适应放大（上限 28pt），12 周列组尽量铺满栏宽，
-                // 与对栏的柱图在视觉重量上平衡
-                GeometryReader { geo in
-                    // 上限 28pt、下限 0：防御窄栏负值（当前窗口宽度下不可达，防未来布局改动）
-                    let side = min(28, max(0, (geo.size.width - 11 * 3) / 12))
-                    HStack(spacing: 3) {
-                        ForEach(0..<12, id: \.self) { week in
-                            VStack(spacing: 3) {
-                                ForEach(0..<7, id: \.self) { weekday in
-                                    heatmapCell(offset: week * 7 + weekday, counts: counts, side: side)
-                                }
+    private var ratingsAndCreatorsCard: some View {
+        StatsCard(
+            icon: "heart.fill",
+            iconColor: Theme.amber,
+            title: "评价与偏爱创作者",
+            subtitle: "RATINGS & CREATORS",
+            note: averageRating.map { String(format: "均分 %.1f ★", $0) }
+        ) {
+            VStack(spacing: 16) {
+                // 上半部分：5 星评分水平分布条
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("星级分布")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                        Spacer()
+                        if ratedCount > 0 {
+                            Text("已评 \(ratedCount) 件")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.ink3)
+                        }
+                    }
+
+                    if ratedCount == 0 {
+                        HStack {
+                            Spacer()
+                            Text("还没有记录星级评分")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.ink3)
+                                .padding(.vertical, 16)
+                            Spacer()
+                        }
+                    } else {
+                        VStack(spacing: 4) {
+                            ForEach((1...5).reversed(), id: \.self) { stars in
+                                ratingBarRow(stars: stars)
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity)
                 }
-                .frame(height: 7 * 28 + 6 * 3)
-                HStack {
-                    Text("近 12 周共收录 \(total) 件")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.ink3)
-                    Spacer()
-                    heatmapLegend
-                }
-            }
-        }
-    }
 
-    /// 热力图单格：未来日期留空，其余按当日收录数四档着色（side 随栏宽自适应）
-    private func heatmapCell(offset: Int, counts: [Int: Int], side: CGFloat) -> some View {
-        let cal = Calendar.current
-        let date = cal.date(byAdding: .day, value: offset, to: heatmapStart)!
-        let isFuture = date > cal.startOfDay(for: Date())
-        let count = isFuture ? 0 : (counts[offset] ?? 0)
-        return RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-            .fill(isFuture ? Color.clear : heatColor(count))
-            .frame(width: side, height: side)
-            .help("\(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits))) 收录 \(count) 件")
-    }
+                // 细分隔线
+                Rectangle()
+                    .fill(Theme.rule)
+                    .frame(height: 1)
 
-    /// 着色档位：0 空格轨道色 / 1 件 35% / 2 件 65% / 3+ 件实心强调色
-    private func heatColor(_ count: Int) -> Color {
-        switch count {
-        case 0:  return Theme.track
-        case 1:  return Theme.amber.opacity(0.35)
-        case 2:  return Theme.amber.opacity(0.65)
-        default: return Theme.amber
-        }
-    }
-
-    /// 图例：少 → 多 四档色阶
-    private var heatmapLegend: some View {
-        HStack(spacing: 4) {
-            Text("少")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.ink3)
-            ForEach([0, 1, 2, 3], id: \.self) { level in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(heatColor(level))
-                    .frame(width: 10, height: 10)
-            }
-            Text("多")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.ink3)
-        }
-    }
-
-    // MARK: - 月度收录趋势（近 6 个月）
-
-    private var trendSection: some View {
-        let months = monthlyTrend
-        let maxCount = max(1, months.map(\.total).max() ?? 0)
-        return statSection(title: "月度收录趋势", subtitle: "TREND", note: "近 6 个月") {
-            HStack(alignment: .bottom, spacing: 0) {
-                ForEach(Array(months.enumerated()), id: \.offset) { _, month in
-                    VStack(spacing: 6) {
-                        Text("\(month.total)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Theme.ink3)
-                        ZStack(alignment: .bottom) {
-                            trendBar(month: month, maxCount: maxCount)
-                        }
-                        .frame(height: 96)
-                        Text(month.label)
+                // 下半部分：常收录创作者 TOP 5
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("偏爱创作者")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                        Spacer()
+                        Text("收录 TOP 5")
                             .font(.system(size: 10))
                             .foregroundStyle(Theme.ink3)
                     }
-                    .frame(maxWidth: .infinity)
+
+                    if topCreators.isEmpty {
+                        HStack {
+                            Spacer()
+                            Text("暂无创作者信息")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.ink3)
+                                .padding(.vertical, 16)
+                            Spacer()
+                        }
+                    } else {
+                        let maxCount = max(1, topCreators.first?.count ?? 1)
+                        VStack(spacing: 5) {
+                            ForEach(Array(topCreators.enumerated()), id: \.offset) { index, creator in
+                                creatorCompactRow(rank: index + 1, creator: creator, maxCount: maxCount)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    /// 单月柱：按类型三段堆叠（影视蓝 / 音乐琥珀 / 书籍绿），空月为轨道色垫底
-    private func trendBar(month: (label: String, total: Int, counts: [MediaType: Int]), maxCount: Int) -> some View {
-        let barHeight = max(8, 96 * CGFloat(month.total) / CGFloat(maxCount))
+    /// 评分水平条单行 (5星 -> 1星)
+    private func ratingBarRow(stars: Int) -> some View {
+        let count = store.items.filter { $0.rating == stars }.count
+        let total = max(1, ratedCount)
+        let fraction = Double(count) / Double(total)
+        let color = Theme.amber.opacity(min(1, 0.35 + 0.13 * Double(stars)))
+
+        return HStack(spacing: 7) {
+            HStack(spacing: 2) {
+                Text("\(stars)")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Theme.ink2)
+                Image(systemName: "star.fill")
+                    .font(.system(size: 7.5))
+                    .foregroundStyle(Theme.amber)
+            }
+            .frame(width: 24, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.track)
+                    Capsule().fill(color).frame(width: max(0, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 5)
+
+            HStack(spacing: 2) {
+                Text("\(count)")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(count > 0 ? Theme.ink : Theme.ink3)
+            }
+            .frame(width: 20, alignment: .trailing)
+        }
+    }
+
+    /// 创作者紧凑行
+    private func creatorCompactRow(rank: Int, creator: (name: String, count: Int, type: MediaType), maxCount: Int) -> some View {
+        let fraction = Double(creator.count) / Double(maxCount)
+        let color = typeColor(creator.type)
+
+        return HStack(spacing: 7) {
+            // 名次标
+            Text("\(rank)")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(rank == 1 ? Theme.amber : (rank <= 3 ? Theme.ink2 : Theme.ink3))
+                .frame(width: 12, alignment: .center)
+
+            // 类型色点
+            Circle().fill(color).frame(width: 5, height: 5)
+
+            // 名字
+            Text(creator.name)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(1)
+                .frame(maxWidth: 130, alignment: .leading)
+
+            // 比例条
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.track)
+                    Capsule().fill(color.opacity(0.85)).frame(width: max(0, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 5)
+
+            // 件数
+            Text("\(creator.count) 件")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.ink3)
+                .frame(width: 28, alignment: .trailing)
+        }
+    }
+
+    // MARK: - 4. 底层时光足迹卡片 (Timeline & Footprints)
+
+    private var timelineCard: some View {
+        let counts = heatmapCounts
+        let total = counts.values.reduce(0, +)
+
+        return StatsCard(
+            icon: "clock.arrow.circlepath",
+            iconColor: Color(nsColor: Theme.hex(0x43B581)),
+            title: "时光足迹与收录节奏",
+            subtitle: "TIMELINE & FOOTPRINTS",
+            note: "近 12 周共收录 \(total) 件"
+        ) {
+            HStack(alignment: .top, spacing: 28) {
+                // 左区：近 6 个月月度趋势
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("月度收录趋势")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                        Spacer()
+                        trendLegend
+                    }
+
+                    monthlyTrendView
+                }
+                .frame(maxWidth: .infinity)
+
+                // 纵向分割发丝线 (固定高度与对齐)
+                Rectangle()
+                    .fill(Theme.rule)
+                    .frame(width: 1, height: 120)
+
+                // 右区：近 12 周热力图
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("收录热力网格")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                        Spacer()
+                        heatmapLegend
+                    }
+
+                    heatmapGrid(counts: counts)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// 月度收录趋势柱状图
+    private var monthlyTrendView: some View {
+        let months = monthlyTrend
+        let maxCount = max(1, months.map(\.total).max() ?? 0)
+
+        return HStack(alignment: .bottom, spacing: 0) {
+            ForEach(Array(months.enumerated()), id: \.offset) { _, month in
+                VStack(spacing: 5) {
+                    Text("\(month.total)")
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(month.total > 0 ? Theme.ink2 : Theme.ink3)
+
+                    ZStack(alignment: .bottom) {
+                        trendStackedBar(month: month, maxCount: maxCount)
+                    }
+                    .frame(height: 64)
+
+                    Text(month.label)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.ink3)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func trendStackedBar(month: (label: String, total: Int, counts: [MediaType: Int]), maxCount: Int) -> some View {
+        let barHeight = max(6, 64 * CGFloat(month.total) / CGFloat(maxCount))
         return Group {
             if month.total == 0 {
-                Capsule().fill(Theme.track).frame(width: 22, height: 4)
+                Capsule().fill(Theme.track).frame(width: 16, height: 3)
             } else {
                 VStack(spacing: 0) {
                     ForEach(MediaType.allCases) { type in
@@ -566,64 +695,117 @@ struct StatsView: View {
                         }
                     }
                 }
-                .frame(width: 22, height: barHeight)
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 4, style: .continuous))
+                .frame(width: 16, height: barHeight)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 3, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 3, style: .continuous))
             }
         }
     }
 
-    // MARK: - 创作者 TOP 榜
-
-    private var creatorSection: some View {
-        let creators = topCreators
-        return statSection(title: "创作者 TOP 榜", subtitle: "TOP CREATORS") {
-            if creators.isEmpty {
-                Text("还没有创作者信息")
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink3)
-            } else {
-                VStack(spacing: 14) {
-                    ForEach(Array(creators.enumerated()), id: \.offset) { index, creator in
-                        creatorRow(rank: index + 1, creator: creator, maxCount: creators[0].count)
-                    }
+    private var trendLegend: some View {
+        HStack(spacing: 7) {
+            ForEach(MediaType.allCases) { type in
+                HStack(spacing: 3) {
+                    Circle().fill(typeColor(type)).frame(width: 5, height: 5)
+                    Text(type.rawValue)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(Theme.ink3)
                 }
             }
         }
     }
 
-    /// 榜单行：名次 + 主导类型色点 + 名字 + 件数 + 占比条（轴基为榜首件数）
-    private func creatorRow(rank: Int, creator: (name: String, count: Int, type: MediaType), maxCount: Int) -> some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 10) {
-                Text("\(rank)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(rank == 1 ? Theme.amber : Theme.ink3)
-                    .frame(width: 16, alignment: .leading)
-                Circle().fill(typeColor(creator.type)).frame(width: 8, height: 8)
-                Text(creator.name)
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                Spacer()
-                Text("\(creator.count) 件")
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.ink2)
+    /// 12 周日历热力图
+    private func heatmapGrid(counts: [Int: Int]) -> some View {
+        let side: CGFloat = 12
+        let spacing: CGFloat = 3.5
+
+        return HStack(alignment: .top, spacing: 6) {
+            // 7 天精确对齐星期标 (周一、三、五、日)
+            VStack(spacing: spacing) {
+                ForEach(0..<7, id: \.self) { day in
+                    Group {
+                        switch day {
+                        case 0: Text("一")
+                        case 2: Text("三")
+                        case 4: Text("五")
+                        case 6: Text("日")
+                        default: Text("")
+                        }
+                    }
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(Theme.ink3)
+                    .frame(width: 12, height: side)
+                }
             }
-            ratioBar(fraction: Double(creator.count) / Double(maxCount), color: typeColor(creator.type))
+
+            // 12 列网格
+            HStack(spacing: spacing) {
+                ForEach(0..<12, id: \.self) { week in
+                    VStack(spacing: spacing) {
+                        ForEach(0..<7, id: \.self) { weekday in
+                            heatmapCell(offset: week * 7 + weekday, counts: counts, side: side)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 7 * side + 6 * spacing)
+    }
+
+    private func heatmapCell(offset: Int, counts: [Int: Int], side: CGFloat) -> some View {
+        let cal = Calendar.current
+        let date = cal.date(byAdding: .day, value: offset, to: heatmapStart)!
+        let isFuture = date > cal.startOfDay(for: Date())
+        let count = isFuture ? 0 : (counts[offset] ?? 0)
+
+        return RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(isFuture ? Color.clear : heatColor(count))
+            .frame(width: side, height: side)
+            .help("\(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits))) 收录 \(count) 件")
+    }
+
+    private func heatColor(_ count: Int) -> Color {
+        switch count {
+        case 0:  return Theme.track
+        case 1:  return Theme.amber.opacity(0.35)
+        case 2:  return Theme.amber.opacity(0.65)
+        default: return Theme.amber
         }
     }
 
-    // MARK: - 通用
-
-    /// 比例横条：轨道 + 按 fraction 填充
-    private func ratioBar(fraction: Double, color: Color) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.track)
-                Capsule().fill(color).frame(width: max(geo.size.width * fraction, 0))
+    private var heatmapLegend: some View {
+        HStack(spacing: 3) {
+            Text("少")
+                .font(.system(size: 9))
+                .foregroundStyle(Theme.ink3)
+            ForEach([0, 1, 2, 3], id: \.self) { level in
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(heatColor(level))
+                    .frame(width: 7.5, height: 7.5)
             }
+            Text("多")
+                .font(.system(size: 9))
+                .foregroundStyle(Theme.ink3)
         }
-        .frame(height: 6)
+    }
+
+    // MARK: - 通用辅助
+
+    private func typeColor(_ type: MediaType) -> Color {
+        switch type {
+        case .movie: return Theme.typeMovie
+        case .music: return Theme.typeMusic
+        case .book:  return Theme.typeBook
+        }
+    }
+
+    private func statusName(_ status: MediaStatus) -> String {
+        switch status {
+        case .planned:    return "待品味"
+        case .inProgress: return "进行中"
+        case .completed:  return "已完成"
+        }
     }
 
     // MARK: - 空态
@@ -655,5 +837,75 @@ struct StatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 72)
+    }
+}
+
+// MARK: - Bento 统计卡片通用容器
+
+private struct StatsCard<Content: View>: View {
+    let icon: String?
+    let iconColor: Color
+    let title: String
+    let subtitle: String
+    let note: String?
+    let content: Content
+
+    init(
+        icon: String? = nil,
+        iconColor: Color = Theme.amber,
+        title: String,
+        subtitle: String,
+        note: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.icon = icon
+        self.iconColor = iconColor
+        self.title = title
+        self.subtitle = subtitle
+        self.note = note
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // 卡片头部
+            HStack(alignment: .center, spacing: 9) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(iconColor)
+                        .frame(width: 22, height: 22)
+                        .background(iconColor.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 5.5, style: .continuous))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 13.5, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                        Text(subtitle)
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .tracking(0.6)
+                            .foregroundStyle(Theme.ink3)
+                    }
+                }
+                Spacer()
+                if let note {
+                    Text(note)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Theme.ink3)
+                }
+            }
+
+            content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.panelCorner, style: .continuous)
+                .stroke(Theme.rule, lineWidth: 1)
+        )
     }
 }
